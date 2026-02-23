@@ -1,5 +1,3 @@
-(B) Precompute `agg_stats` lookup map in `filtered_column_indices` in `parquet-lens-tui/src/tui/app.rs`: build a `HashMap<&str, &AggregatedColumnStats>` once before the sort closure to eliminate O(n) linear scan per comparison, reducing overall sort from O(n² log n) to O(n log n) +stability +refactor
-(B) Similarly precompute `quality_scores` lookup map in `filtered_column_indices` in `parquet-lens-tui/src/tui/app.rs` before the sort closure +stability +refactor
 (B) Apply `config.display.theme` in TUI rendering in `parquet-lens-tui/src/tui/ui.rs`: the `Theme` struct is defined in `tui/theme.rs` and `config.display.theme` is loaded but never used to select theme; wire `Config.display.theme` → `Theme::from_str` → pass to render function +feature +refactor
 (B) Add `theme: Theme` field to `App` struct in `parquet-lens-tui/src/tui/app.rs` and initialize it from `config.display.theme` in `App::new` +feature +refactor
 (B) Include `bookmarks` in `Session` struct in `parquet-lens-tui/src/tui/session.rs` and persist/restore them in `App::to_session` and `App::restore_from_session` +feature +dx
