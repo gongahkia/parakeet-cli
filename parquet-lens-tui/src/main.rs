@@ -49,6 +49,7 @@ enum Commands {
         path: String,
         #[arg(long, default_value = "json")] format: String,
         #[arg(long, value_delimiter = ',')] columns: Option<Vec<String>>,
+        #[arg(long)] output: Option<String>,
     },
     Duplicates { path: String },
 }
@@ -61,7 +62,7 @@ async fn main() -> anyhow::Result<()> {
         Commands::Inspect { path, sample } => run_tui(path, config, sample)?,
         Commands::Summary { path } => run_summary(path)?,
         Commands::Compare { path1, path2 } => run_compare(path1, path2, config)?,
-        Commands::Export { path, format, columns } => run_export(path, format, columns)?,
+        Commands::Export { path, format, columns, output } => run_export(path, format, columns, output, config)?,
         Commands::Duplicates { path } => run_duplicates(path)?,
     }
     Ok(())
@@ -305,29 +306,42 @@ fn run_summary(input_path: String) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn run_export(input_path: String, format: String, _columns: Option<Vec<String>>) -> anyhow::Result<()> {
+fn run_export(input_path: String, format: String, columns: Option<Vec<String>>, output: Option<String>, config: Config) -> anyhow::Result<()> {
     let paths = rp(&input_path)?;
     if paths.is_empty() { anyhow::bail!("No Parquet files found: {input_path}"); }
     let dataset = read_metadata_parallel(&paths).map_err(|e| anyhow::anyhow!("{e}"))?;
     let (_, meta) = open_parquet_file(&paths[0].path).map_err(|e| anyhow::anyhow!("{e}"))?;
     let col_stats = read_column_stats(&meta);
     let row_groups = profile_row_groups(&meta);
-    let agg_stats = aggregate_column_stats(&col_stats, dataset.total_rows);
+    let mut agg_stats = aggregate_column_stats(&col_stats, dataset.total_rows);
     let encodings = analyze_encodings(&meta);
-    let quality_scores: Vec<_> = agg_stats.iter().map(|agg| {
+    let mut quality_scores: Vec<_> = agg_stats.iter().map(|agg| {
         let is_plain = encodings.iter().find(|e| e.column_name == agg.column_name).map(|e| e.is_plain_only).unwrap_or(false);
         score_column(&agg.column_name, agg.null_percentage, agg.total_distinct_count_estimate, dataset.total_rows, is_plain)
     }).collect();
+    // column filtering
+    if let Some(ref cols) = columns {
+        let col_set: std::collections::HashSet<&str> = cols.iter().map(|s| s.as_str()).collect();
+        agg_stats.retain(|s| col_set.contains(s.column_name.as_str()));
+        quality_scores.retain(|q| col_set.contains(q.column_name.as_str()));
+    }
+    let default_name = format!("profile.{format}");
+    let out_path: std::path::PathBuf = if let Some(ref o) = output {
+        std::path::PathBuf::from(o)
+    } else {
+        std::path::Path::new(&config.export.output_dir).join(&default_name)
+    };
+    if let Some(parent) = out_path.parent() {
+        if !parent.as_os_str().is_empty() { std::fs::create_dir_all(parent)?; }
+    }
     match format.as_str() {
         "json" => {
-            let out = std::path::Path::new("profile.json");
-            export_json(out, &dataset, &agg_stats, &row_groups, &quality_scores).map_err(|e| anyhow::anyhow!("{e}"))?;
-            println!("Exported to profile.json");
+            export_json(&out_path, &dataset, &agg_stats, &row_groups, &quality_scores).map_err(|e| anyhow::anyhow!("{e}"))?;
+            println!("Exported to {}", out_path.display());
         }
         "csv" => {
-            let out = std::path::Path::new("profile.csv");
-            export_csv(out, &agg_stats, &quality_scores).map_err(|e| anyhow::anyhow!("{e}"))?;
-            println!("Exported to profile.csv");
+            export_csv(&out_path, &agg_stats, &quality_scores).map_err(|e| anyhow::anyhow!("{e}"))?;
+            println!("Exported to {}", out_path.display());
         }
         _ => anyhow::bail!("Unknown format: {format} (use json or csv)"),
     }
