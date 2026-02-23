@@ -34,6 +34,8 @@ fn handle_sidebar(app: &mut App, key: KeyEvent) {
     match key.code {
         KeyCode::Char('j') | KeyCode::Down => app.sidebar_down(),
         KeyCode::Char('k') | KeyCode::Up => app.sidebar_up(),
+        KeyCode::PageDown => { for _ in 0..10 { app.sidebar_down(); } }
+        KeyCode::PageUp => { for _ in 0..10 { app.sidebar_up(); } }
         KeyCode::Enter => {
             let indices = app.filtered_column_indices();
             if let Some(&col_idx) = indices.get(app.sidebar_selected) {
@@ -120,8 +122,8 @@ fn handle_main(app: &mut App, key: KeyEvent) {
         KeyCode::Esc => { app.view = View::FileOverview; app.focus = Focus::Sidebar; }
         KeyCode::Char('<') => { if app.rg_sort_col > 0 { app.rg_sort_col -= 1; } else { app.rg_sort_asc = !app.rg_sort_asc; } }
         KeyCode::Char('>') => { app.rg_sort_col = (app.rg_sort_col + 1) % 5; }
-        KeyCode::Left => { if app.preview_scroll_x > 0 { app.preview_scroll_x -= 1; } }
-        KeyCode::Right => { app.preview_scroll_x += 1; }
+        KeyCode::Left | KeyCode::Char('H') => { if app.preview_scroll_x > 0 { app.preview_scroll_x -= 1; } }
+        KeyCode::Right | KeyCode::Char('L') => { app.preview_scroll_x += 1; }
         KeyCode::Up => { if app.preview_scroll_y > 0 { app.preview_scroll_y -= 1; } }
         KeyCode::Down => { app.preview_scroll_y += 1; }
         _ => {}
