@@ -1,19 +1,3 @@
-(A) Implement Ratatui TUI scaffold: async tokio runtime, crossterm event loop handling keyboard input + resize, tick-based UI refresh at 15Hz +tui
-(A) Build TUI main layout with 4 zones: top bar (file path + dataset summary metrics + profiling mode badge), left sidebar (file tree / column list, scrollable), main content area (dynamic based on selected view), bottom bar (keybindings help + status) +tui
-(A) Implement file overview view (default on launch): display file count, total rows, total size, size on disk, compression ratio, created_by, Parquet version, key-value metadata table — all from metadata-only read, instant load +tui
-(A) Implement schema view: keybinding `S` shows full schema as indented tree (nested types expanded), each column shows name, physical type, logical type, repetition, with color coding by type family (numeric=cyan, string=green, temporal=yellow, boolean=magenta) +tui
-(A) Implement column list in left sidebar: scrollable list of all columns with name, type icon, null% sparkline bar, quality score badge — j/k navigation, Enter to select column for detail view +tui
-(A) Implement column detail view in main area: when column selected, show full statistics panel — type, encoding, compression, null rate, cardinality, min/max, mean/median/stddev (if numeric), top values (if categorical), quality score with breakdown +tui
-(A) Implement histogram widget: render horizontal bar chart using unicode block elements (▏▎▍▌▋▊▉█) for numeric distribution, auto-scale to pane width, show bin range labels on y-axis, count on x-axis +tui
-(A) Implement row group view: keybinding `R` shows table of all row groups with columns: index, num_rows, byte_size, compressed_size, compression_ratio — sortable by any column via `<`/`>` keys, outliers highlighted in red +tui
-(A) Implement row group size distribution chart: horizontal bar chart showing byte size of each row group, mean line overlay, color gradient from green (near mean) to red (outlier) +tui
-(A) Implement null rate heatmap view: keybinding `N` shows grid with columns on x-axis, row groups on y-axis, cell color intensity proportional to null percentage (white=0%, red=100%), useful for spotting systematic null patterns +tui
-(A) Implement data preview view: keybinding `D` reads first N rows (default 100, configurable) from file, display as scrollable table with column headers, horizontal scroll for wide tables, cell values truncated to fit +tui
-(A) Implement profiling mode toggle: keybinding `m` cycles between "metadata" (instant, footer only) and "full-scan" (reads data pages), show current mode in top bar badge, prompt confirmation before full-scan on files >1GB +tui
-(A) Implement async profiling with progress: full-scan profiling runs on background tokio task, TUI shows progress bar (rows processed / total rows), estimated time remaining, cancel with Esc +tui
-(A) Implement Tab key to cycle focus between sidebar, main content, and any active overlay +tui
-(A) Add keybinding `q` to quit, `?` for help overlay listing all keybindings grouped by view +tui
-(A) Wire startup flow: parse CLI path → scan files → read metadata (parallel) → launch TUI with file overview → sidebar populated with columns → ready for navigation +cli
 (B) Implement S3 path resolver: parse `s3://bucket/prefix` URIs, use `aws-sdk-s3` crate with credential chain (env vars → profile → instance metadata), list objects matching prefix, return as virtual file list +reader
 (B) Implement S3 range-read for Parquet footer: read only last 8 bytes (footer length) + footer bytes via HTTP Range request, parse metadata without downloading full file — critical for profiling remote files +reader
 (B) Implement S3 column chunk selective read: for full-scan mode on remote files, read only selected column chunks via Range requests using offsets from metadata, avoid downloading entire file +reader
