@@ -18,3 +18,5 @@ rayon = { workspace = true }
 hyperloglog = { workspace = true }
 tdigest = { workspace = true }
 regex = { workspace = true }
+xxhash-rust = { workspace = true }
+bloomfilter = { workspace = true }

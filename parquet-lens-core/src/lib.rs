@@ -13,3 +13,5 @@ pub use schema::{ColumnSchema, extract_schema};
 pub use schema_diff::{SchemaInconsistency, InconsistencyKind, check_schema_consistency};
 pub use stats::{ColumnStats, AggregatedColumnStats, RowGroupProfile, UniformityReport, EncodingAnalysis, CompressionAnalysis, read_column_stats, aggregate_column_stats, profile_row_groups, analyze_uniformity, analyze_encodings, analyze_compression};
 pub use profile::{ColumnProfileResult, CardinalityEstimate, FrequencyResult, NumericProfile, HistogramBin, StringProfile, TemporalProfile, BooleanProfile, profile_columns, build_histogram};
+pub mod quality;
+pub use quality::{QualityScore, DatasetQuality, DuplicateReport, score_column, summarize_quality, detect_duplicates};
