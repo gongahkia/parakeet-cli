@@ -1,3 +1,2 @@
-(B) In `parquet-lens-tui/src/main.rs`, after `Config::load()` fails, print a warning to stderr (`eprintln!`) with the config file path so users know why defaults are being used — currently `unwrap_or_default()` silently swallows the error +dx +stability
 (B) Add a `'K'` keybind in TUI to copy the currently selected column's name to the system clipboard using `cli-clipboard` crate (add as optional dep) or fall back to printing to status bar +dx
 (B) Add `--json` flag to `summary` subcommand in `parquet-lens-tui/src/main.rs` that outputs the `DatasetQuality` struct as raw JSON to stdout for pipeline use +feature +dx
