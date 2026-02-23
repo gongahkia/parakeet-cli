@@ -141,6 +141,14 @@ fn run_tui(input_path: String, config: Config, sample_pct: Option<f64>) -> anyho
     let tick = Duration::from_millis(66); // 15Hz
     loop {
         terminal.draw(|f| render(f, &app))?;
+        // poll async full-scan progress channel
+        if let Some(rx) = &app.progress_rx {
+            while let Ok(rows_processed) = rx.try_recv() {
+                if let tui::app::ProgressState::Running { total_rows, .. } = app.progress {
+                    app.progress = tui::app::ProgressState::Running { rows_processed, total_rows };
+                }
+            }
+        }
         if event::poll(tick)? {
             if let Event::Key(key) = event::read()? {
                 handle_key(&mut app, key);
