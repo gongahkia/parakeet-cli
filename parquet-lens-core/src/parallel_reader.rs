@@ -1,10 +1,10 @@
+use crate::reader::open_parquet_file;
+use crate::scanner::ParquetFilePath;
+use crate::schema::{extract_schema, ColumnSchema};
+use parquet_lens_common::{ParquetLensError, Result};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use parquet_lens_common::{ParquetLensError, Result};
-use crate::reader::open_parquet_file;
-use crate::scanner::ParquetFilePath;
-use crate::schema::{ColumnSchema, extract_schema};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DatasetProfile {
@@ -70,19 +70,33 @@ pub fn read_metadata_parallel(paths: &[ParquetFilePath]) -> Result<DatasetProfil
                 let other_names: Vec<&str> = other_schema.iter().map(|c| c.name.as_str()).collect();
                 for &name in &ref_col_names {
                     if !other_names.contains(&name) {
-                        schema_inconsistencies.push(format!("{}: missing column '{}'", pf.path.display(), name));
+                        schema_inconsistencies.push(format!(
+                            "{}: missing column '{}'",
+                            pf.path.display(),
+                            name
+                        ));
                     }
                 }
                 for &name in &other_names {
                     if !ref_col_names.contains(&name) {
-                        schema_inconsistencies.push(format!("{}: extra column '{}'", pf.path.display(), name));
+                        schema_inconsistencies.push(format!(
+                            "{}: extra column '{}'",
+                            pf.path.display(),
+                            name
+                        ));
                     }
                 }
                 // type mismatches
                 for col in &combined_schema {
                     if let Some(other_col) = other_schema.iter().find(|c| c.name == col.name) {
                         if other_col.physical_type != col.physical_type {
-                            schema_inconsistencies.push(format!("{}: column '{}' type {} vs {}", pf.path.display(), col.name, col.physical_type, other_col.physical_type));
+                            schema_inconsistencies.push(format!(
+                                "{}: column '{}' type {} vs {}",
+                                pf.path.display(),
+                                col.name,
+                                col.physical_type,
+                                other_col.physical_type
+                            ));
                         }
                     }
                 }

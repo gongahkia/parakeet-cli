@@ -1,6 +1,6 @@
 use bytes::Bytes;
-use parquet::file::reader::{FileReader, SerializedFileReader};
 use parquet::file::metadata::ParquetMetaData;
+use parquet::file::reader::{FileReader, SerializedFileReader};
 use parquet_lens_common::{ParquetLensError, Result};
 
 /// parsed gs:// URI
@@ -13,7 +13,10 @@ pub struct GcsUri {
 pub fn parse_gcs_uri(uri: &str) -> Option<GcsUri> {
     let stripped = uri.strip_prefix("gs://")?;
     let (bucket, object) = stripped.split_once('/')?;
-    Some(GcsUri { bucket: bucket.to_owned(), object: object.to_owned() })
+    Some(GcsUri {
+        bucket: bucket.to_owned(),
+        object: object.to_owned(),
+    })
 }
 
 pub fn is_gcs_uri(path: &str) -> bool {
@@ -23,18 +26,22 @@ pub fn is_gcs_uri(path: &str) -> bool {
 /// list .parquet objects under gs://bucket/prefix via GCS JSON API
 /// uses application default credentials (GOOGLE_APPLICATION_CREDENTIALS or metadata server)
 pub async fn list_gcs_parquet(uri: &str) -> Result<Vec<String>> {
-    let gcs_uri = parse_gcs_uri(uri).ok_or_else(|| ParquetLensError::Other(format!("invalid GCS URI: {uri}")))?;
+    let gcs_uri = parse_gcs_uri(uri)
+        .ok_or_else(|| ParquetLensError::Other(format!("invalid GCS URI: {uri}")))?;
     let token = get_adc_token().await?;
     let url = format!(
         "https://storage.googleapis.com/storage/v1/b/{}/o?prefix={}&fields=items/name",
         gcs_uri.bucket, gcs_uri.object
     );
     let client = reqwest::Client::new();
-    let resp = client.get(&url)
+    let resp = client
+        .get(&url)
         .bearer_auth(&token)
-        .send().await
+        .send()
+        .await
         .map_err(|e| ParquetLensError::Other(e.to_string()))?
-        .json::<serde_json::Value>().await
+        .json::<serde_json::Value>()
+        .await
         .map_err(|e| ParquetLensError::Other(e.to_string()))?;
     let mut keys = Vec::new();
     if let Some(items) = resp.get("items").and_then(|v| v.as_array()) {
@@ -57,7 +64,8 @@ pub async fn read_gcs_parquet_metadata(uri: &str) -> Result<ParquetMetaData> {
 }
 
 async fn fetch_gcs_bytes(uri: &str) -> Result<Bytes> {
-    let gcs_uri = parse_gcs_uri(uri).ok_or_else(|| ParquetLensError::Other(format!("invalid GCS URI: {uri}")))?;
+    let gcs_uri = parse_gcs_uri(uri)
+        .ok_or_else(|| ParquetLensError::Other(format!("invalid GCS URI: {uri}")))?;
     let token = get_adc_token().await?;
     let url = format!(
         "https://storage.googleapis.com/storage/v1/b/{}/o/{}?alt=media",
@@ -65,15 +73,22 @@ async fn fetch_gcs_bytes(uri: &str) -> Result<Bytes> {
         urlencoded(&gcs_uri.object)
     );
     let client = reqwest::Client::new();
-    let resp = client.get(&url)
+    let resp = client
+        .get(&url)
         .bearer_auth(&token)
-        .send().await
+        .send()
+        .await
         .map_err(|e| ParquetLensError::Other(e.to_string()))?;
     let status = resp.status();
     if status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN {
-        return Err(ParquetLensError::Auth(format!("GCS returned HTTP {status} for {uri}")));
+        return Err(ParquetLensError::Auth(format!(
+            "GCS returned HTTP {status} for {uri}"
+        )));
     }
-    let bytes = resp.bytes().await.map_err(|e| ParquetLensError::Other(e.to_string()))?;
+    let bytes = resp
+        .bytes()
+        .await
+        .map_err(|e| ParquetLensError::Other(e.to_string()))?;
     Ok(bytes)
 }
 
@@ -82,11 +97,14 @@ async fn get_adc_token() -> Result<String> {
     // check GOOGLE_APPLICATION_CREDENTIALS env — minimal implementation uses metadata server
     let client = reqwest::Client::new();
     let url = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token";
-    let resp = client.get(url)
+    let resp = client
+        .get(url)
         .header("Metadata-Flavor", "Google")
-        .send().await
+        .send()
+        .await
         .map_err(|e| ParquetLensError::Other(format!("ADC token fetch failed: {e}")))?
-        .json::<serde_json::Value>().await
+        .json::<serde_json::Value>()
+        .await
         .map_err(|e| ParquetLensError::Other(e.to_string()))?;
     resp.get("access_token")
         .and_then(|v| v.as_str())

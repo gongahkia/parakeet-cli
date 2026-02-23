@@ -14,7 +14,9 @@ pub struct HllEstimator {
 impl HllEstimator {
     pub fn new() -> Self {
         // error rate ~0.8%
-        Self { hll: HyperLogLog::new(0.00813) }
+        Self {
+            hll: HyperLogLog::new(0.00813),
+        }
     }
     pub fn add_bytes(&mut self, val: &[u8]) {
         self.hll.insert(&val);

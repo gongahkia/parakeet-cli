@@ -1,10 +1,10 @@
-use std::path::{Path, PathBuf};
-use memmap2::Mmap;
 use bytes::Bytes;
+use memmap2::Mmap;
 use parquet::file::metadata::ParquetMetaData;
 use parquet::file::reader::{FileReader, SerializedFileReader};
-use serde::{Deserialize, Serialize};
 use parquet_lens_common::{ParquetLensError, Result};
+use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ParquetFileInfo {
@@ -34,14 +34,18 @@ pub fn open_parquet_file(path: &Path) -> Result<(ParquetFileInfo, ParquetMetaDat
     // memory-map the file for zero-copy footer access
     let mmap: Mmap = unsafe { Mmap::map(&file)? };
     let bytes = Bytes::copy_from_slice(&mmap);
-    let reader = SerializedFileReader::new(bytes)
-        .map_err(ParquetLensError::Parquet)?;
+    let reader = SerializedFileReader::new(bytes).map_err(ParquetLensError::Parquet)?;
     let meta = reader.metadata().clone();
     let file_meta = meta.file_metadata();
     let created_by = file_meta.created_by().map(|s| s.to_owned());
     let parquet_version = file_meta.version();
-    let kv_meta = file_meta.key_value_metadata()
-        .map(|kv| kv.iter().map(|k| (k.key.clone(), k.value.clone())).collect())
+    let kv_meta = file_meta
+        .key_value_metadata()
+        .map(|kv| {
+            kv.iter()
+                .map(|k| (k.key.clone(), k.value.clone()))
+                .collect()
+        })
         .unwrap_or_default();
     let schema = file_meta.schema_descr();
     let schema_fields: Vec<SchemaFieldInfo> = (0..schema.num_columns())

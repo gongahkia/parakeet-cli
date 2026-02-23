@@ -5,7 +5,7 @@ use std::path::PathBuf;
 pub struct Session {
     pub input_path: String,
     pub sidebar_selected: usize,
-    pub view: String,        // serialized view name
+    pub view: String, // serialized view name
     pub profiling_mode: String,
     #[serde(default)]
     pub bookmarks: Vec<String>,
@@ -17,7 +17,9 @@ pub struct Session {
     pub show_bookmarks_only: bool,
 }
 
-fn default_true() -> bool { true }
+fn default_true() -> bool {
+    true
+}
 
 impl Session {
     pub fn cache_path() -> PathBuf {
@@ -28,7 +30,9 @@ impl Session {
     }
     pub fn save(&self) -> anyhow::Result<()> {
         let path = Self::cache_path();
-        if let Some(parent) = path.parent() { std::fs::create_dir_all(parent)?; }
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
         std::fs::write(&path, serde_json::to_string_pretty(self)?)?;
         Ok(())
     }

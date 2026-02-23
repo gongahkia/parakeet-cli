@@ -1,29 +1,69 @@
 use crate::tui::session::Session;
-use parquet_lens_core::{
-    DatasetProfile, ColumnSchema, ParquetFileInfo, RowGroupProfile,
-    AggregatedColumnStats, EncodingAnalysis, CompressionAnalysis,
-    QualityScore, ColumnProfileResult, DatasetComparison, FilterResult,
-    RepairSuggestion, TimeSeriesProfile, NestedColumnProfile,
-    EngineInfo, NullPatternGroup, BaselineRegression, DuplicateReport,
-    RowGroupSizeRecommendation, PartitionInfo,
-};
-use parquet_lens_common::Config;
 use crate::tui::theme::Theme;
+use parquet_lens_common::Config;
+use parquet_lens_core::{
+    AggregatedColumnStats, BaselineRegression, ColumnProfileResult, ColumnSchema,
+    CompressionAnalysis, DatasetComparison, DatasetProfile, DuplicateReport, EncodingAnalysis,
+    EngineInfo, FilterResult, NestedColumnProfile, NullPatternGroup, ParquetFileInfo,
+    PartitionInfo, QualityScore, RepairSuggestion, RowGroupProfile, RowGroupSizeRecommendation,
+    TimeSeriesProfile,
+};
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum SidebarSort { Name, NullRate, Cardinality, Size, Quality }
+pub enum SidebarSort {
+    Name,
+    NullRate,
+    Cardinality,
+    Size,
+    Quality,
+}
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum View { FileOverview, Schema, ColumnDetail(usize), RowGroups, NullHeatmap, DataPreview, Help, ConfirmFullScan, Compare, ColumnSizeBreakdown, FileList, FilterInput, Repair, TimeSeries, Nested, NullPatterns, Baseline, Duplicates, Partitions }
+pub enum View {
+    FileOverview,
+    Schema,
+    ColumnDetail(usize),
+    RowGroups,
+    NullHeatmap,
+    DataPreview,
+    Help,
+    ConfirmFullScan,
+    Compare,
+    ColumnSizeBreakdown,
+    FileList,
+    FilterInput,
+    Repair,
+    TimeSeries,
+    Nested,
+    NullPatterns,
+    Baseline,
+    Duplicates,
+    Partitions,
+}
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum ProfilingMode { Metadata, FullScan }
+pub enum ProfilingMode {
+    Metadata,
+    FullScan,
+}
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Focus { Sidebar, Main, Overlay }
+pub enum Focus {
+    Sidebar,
+    Main,
+    Overlay,
+}
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum ProgressState { Idle, Running { rows_processed: u64, total_rows: u64 }, Done, Cancelled }
+pub enum ProgressState {
+    Idle,
+    Running {
+        rows_processed: u64,
+        total_rows: u64,
+    },
+    Done,
+    Cancelled,
+}
 
 pub struct App {
     pub input_path: String,
@@ -82,15 +122,25 @@ pub struct App {
 impl App {
     pub fn new(input_path: String, config: Config) -> Self {
         Self {
-            input_path, dataset: None, file_info: None,
-            row_groups: Vec::new(), agg_stats: Vec::new(),
-            encoding_analysis: Vec::new(), compression_analysis: Vec::new(),
-            quality_scores: Vec::new(), full_scan_results: Vec::new(),
-            preview_rows: Vec::new(), preview_headers: Vec::new(),
-            view: View::FileOverview, focus: Focus::Sidebar,
+            input_path,
+            dataset: None,
+            file_info: None,
+            row_groups: Vec::new(),
+            agg_stats: Vec::new(),
+            encoding_analysis: Vec::new(),
+            compression_analysis: Vec::new(),
+            quality_scores: Vec::new(),
+            full_scan_results: Vec::new(),
+            preview_rows: Vec::new(),
+            preview_headers: Vec::new(),
+            view: View::FileOverview,
+            focus: Focus::Sidebar,
             profiling_mode: ProfilingMode::Metadata,
-            sidebar_selected: 0, rg_sort_col: 0, rg_sort_asc: true,
-            preview_scroll_x: 0, preview_scroll_y: 0,
+            sidebar_selected: 0,
+            rg_sort_col: 0,
+            rg_sort_asc: true,
+            preview_scroll_x: 0,
+            preview_scroll_y: 0,
             progress: ProgressState::Idle,
             progress_rx: None,
             pending_full_scan: false,
@@ -98,11 +148,18 @@ impl App {
             should_quit: false,
             theme: Theme::from_name(&config.display.theme),
             config,
-            comparison: None, compare_sidebar_col: 0,
-            sidebar_search: String::new(), sidebar_searching: false,
-            sidebar_sort: SidebarSort::Name, sidebar_sort_asc: true,
-            bookmarks: Vec::new(), show_bookmarks_only: false, show_null_hotspot_only: false,
-            filter_input: String::new(), filter_active: false, filter_result: None,
+            comparison: None,
+            compare_sidebar_col: 0,
+            sidebar_search: String::new(),
+            sidebar_searching: false,
+            sidebar_sort: SidebarSort::Name,
+            sidebar_sort_asc: true,
+            bookmarks: Vec::new(),
+            show_bookmarks_only: false,
+            show_null_hotspot_only: false,
+            filter_input: String::new(),
+            filter_active: false,
+            filter_result: None,
             sample_note: None,
             repair_suggestions: Vec::new(),
             rg_size_recommendation: None,
@@ -119,17 +176,27 @@ impl App {
         }
     }
     pub fn columns(&self) -> &[ColumnSchema] {
-        self.dataset.as_ref().map(|d| d.combined_schema.as_slice()).unwrap_or(&[])
+        self.dataset
+            .as_ref()
+            .map(|d| d.combined_schema.as_slice())
+            .unwrap_or(&[])
     }
     pub fn column_count(&self) -> usize {
-        self.dataset.as_ref().map(|d| d.combined_schema.len()).unwrap_or(0)
+        self.dataset
+            .as_ref()
+            .map(|d| d.combined_schema.len())
+            .unwrap_or(0)
     }
     pub fn sidebar_down(&mut self) {
         let max = self.column_count().saturating_sub(1);
-        if self.sidebar_selected < max { self.sidebar_selected += 1; }
+        if self.sidebar_selected < max {
+            self.sidebar_selected += 1;
+        }
     }
     pub fn sidebar_up(&mut self) {
-        if self.sidebar_selected > 0 { self.sidebar_selected -= 1; }
+        if self.sidebar_selected > 0 {
+            self.sidebar_selected -= 1;
+        }
     }
     pub fn cycle_focus(&mut self) {
         self.focus = match self.focus {
@@ -140,44 +207,92 @@ impl App {
     }
     pub fn filtered_column_indices(&self) -> Vec<usize> {
         let cols = self.columns();
-        let mut indices: Vec<usize> = (0..cols.len()).filter(|&i| {
-            let col = &cols[i];
-            let search_match = self.sidebar_search.is_empty() || col.name.to_lowercase().contains(&self.sidebar_search.to_lowercase());
-            let bookmark_match = !self.show_bookmarks_only || self.bookmarks.contains(&col.name);
-            let hotspot_match = !self.show_null_hotspot_only || self.agg_stats.iter().find(|s| s.column_name == col.name).map(|s| s.null_percentage > 5.0).unwrap_or(false);
-            search_match && bookmark_match && hotspot_match
-        }).collect();
+        let mut indices: Vec<usize> = (0..cols.len())
+            .filter(|&i| {
+                let col = &cols[i];
+                let search_match = self.sidebar_search.is_empty()
+                    || col
+                        .name
+                        .to_lowercase()
+                        .contains(&self.sidebar_search.to_lowercase());
+                let bookmark_match =
+                    !self.show_bookmarks_only || self.bookmarks.contains(&col.name);
+                let hotspot_match = !self.show_null_hotspot_only
+                    || self
+                        .agg_stats
+                        .iter()
+                        .find(|s| s.column_name == col.name)
+                        .map(|s| s.null_percentage > 5.0)
+                        .unwrap_or(false);
+                search_match && bookmark_match && hotspot_match
+            })
+            .collect();
         // precompute lookup maps to avoid O(n) scan per sort comparison
-        let agg_map: std::collections::HashMap<&str, &AggregatedColumnStats> =
-            self.agg_stats.iter().map(|s| (s.column_name.as_str(), s)).collect();
-        let qual_map: std::collections::HashMap<&str, &QualityScore> =
-            self.quality_scores.iter().map(|s| (s.column_name.as_str(), s)).collect();
+        let agg_map: std::collections::HashMap<&str, &AggregatedColumnStats> = self
+            .agg_stats
+            .iter()
+            .map(|s| (s.column_name.as_str(), s))
+            .collect();
+        let qual_map: std::collections::HashMap<&str, &QualityScore> = self
+            .quality_scores
+            .iter()
+            .map(|s| (s.column_name.as_str(), s))
+            .collect();
         indices.sort_by(|&a, &b| {
-            let ca = &cols[a]; let cb = &cols[b];
+            let ca = &cols[a];
+            let cb = &cols[b];
             let ord = match self.sidebar_sort {
                 SidebarSort::Name => ca.name.cmp(&cb.name),
                 SidebarSort::NullRate => {
-                    let na = agg_map.get(ca.name.as_str()).map(|s| (s.null_percentage * 1000.0) as i64).unwrap_or(0);
-                    let nb = agg_map.get(cb.name.as_str()).map(|s| (s.null_percentage * 1000.0) as i64).unwrap_or(0);
+                    let na = agg_map
+                        .get(ca.name.as_str())
+                        .map(|s| (s.null_percentage * 1000.0) as i64)
+                        .unwrap_or(0);
+                    let nb = agg_map
+                        .get(cb.name.as_str())
+                        .map(|s| (s.null_percentage * 1000.0) as i64)
+                        .unwrap_or(0);
                     na.cmp(&nb)
                 }
                 SidebarSort::Quality => {
-                    let qa = qual_map.get(ca.name.as_str()).map(|s| s.score).unwrap_or(100);
-                    let qb = qual_map.get(cb.name.as_str()).map(|s| s.score).unwrap_or(100);
+                    let qa = qual_map
+                        .get(ca.name.as_str())
+                        .map(|s| s.score)
+                        .unwrap_or(100);
+                    let qb = qual_map
+                        .get(cb.name.as_str())
+                        .map(|s| s.score)
+                        .unwrap_or(100);
                     qa.cmp(&qb)
                 }
                 SidebarSort::Size => {
-                    let sa = agg_map.get(ca.name.as_str()).map(|s| s.total_data_page_size).unwrap_or(0);
-                    let sb = agg_map.get(cb.name.as_str()).map(|s| s.total_data_page_size).unwrap_or(0);
+                    let sa = agg_map
+                        .get(ca.name.as_str())
+                        .map(|s| s.total_data_page_size)
+                        .unwrap_or(0);
+                    let sb = agg_map
+                        .get(cb.name.as_str())
+                        .map(|s| s.total_data_page_size)
+                        .unwrap_or(0);
                     sa.cmp(&sb)
                 }
                 SidebarSort::Cardinality => {
-                    let ca2 = agg_map.get(ca.name.as_str()).and_then(|s| s.total_distinct_count_estimate).unwrap_or(0);
-                    let cb2 = agg_map.get(cb.name.as_str()).and_then(|s| s.total_distinct_count_estimate).unwrap_or(0);
+                    let ca2 = agg_map
+                        .get(ca.name.as_str())
+                        .and_then(|s| s.total_distinct_count_estimate)
+                        .unwrap_or(0);
+                    let cb2 = agg_map
+                        .get(cb.name.as_str())
+                        .and_then(|s| s.total_distinct_count_estimate)
+                        .unwrap_or(0);
                     ca2.cmp(&cb2)
                 }
             };
-            if self.sidebar_sort_asc { ord } else { ord.reverse() }
+            if self.sidebar_sort_asc {
+                ord
+            } else {
+                ord.reverse()
+            }
         });
         indices
     }
@@ -214,22 +329,33 @@ impl App {
             View::Partitions => "partitions",
             _ => "overview",
         };
-        let mode = match self.profiling_mode { ProfilingMode::Metadata => "metadata", ProfilingMode::FullScan => "full_scan" };
+        let mode = match self.profiling_mode {
+            ProfilingMode::Metadata => "metadata",
+            ProfilingMode::FullScan => "full_scan",
+        };
         let sort_str = match self.sidebar_sort {
-            SidebarSort::Name => "name", SidebarSort::NullRate => "null_rate",
-            SidebarSort::Cardinality => "cardinality", SidebarSort::Size => "size",
+            SidebarSort::Name => "name",
+            SidebarSort::NullRate => "null_rate",
+            SidebarSort::Cardinality => "cardinality",
+            SidebarSort::Size => "size",
             SidebarSort::Quality => "quality",
         };
         Session {
-            input_path: self.input_path.clone(), sidebar_selected: self.sidebar_selected,
-            view: view.into(), profiling_mode: mode.into(),
-            bookmarks: self.bookmarks.clone(), sidebar_sort: sort_str.into(),
-            sidebar_sort_asc: self.sidebar_sort_asc, show_bookmarks_only: self.show_bookmarks_only,
+            input_path: self.input_path.clone(),
+            sidebar_selected: self.sidebar_selected,
+            view: view.into(),
+            profiling_mode: mode.into(),
+            bookmarks: self.bookmarks.clone(),
+            sidebar_sort: sort_str.into(),
+            sidebar_sort_asc: self.sidebar_sort_asc,
+            show_bookmarks_only: self.show_bookmarks_only,
         }
     }
 
     pub fn restore_from_session(&mut self, s: &Session) {
-        if s.input_path != self.input_path { return; }
+        if s.input_path != self.input_path {
+            return;
+        }
         self.sidebar_selected = s.sidebar_selected;
         self.view = match s.view.as_str() {
             "schema" => View::Schema,
@@ -249,11 +375,18 @@ impl App {
             "partitions" => View::Partitions,
             _ => View::FileOverview,
         };
-        self.profiling_mode = if s.profiling_mode == "full_scan" { ProfilingMode::FullScan } else { ProfilingMode::Metadata };
+        self.profiling_mode = if s.profiling_mode == "full_scan" {
+            ProfilingMode::FullScan
+        } else {
+            ProfilingMode::Metadata
+        };
         self.bookmarks = s.bookmarks.clone();
         self.sidebar_sort = match s.sidebar_sort.as_str() {
-            "null_rate" => SidebarSort::NullRate, "cardinality" => SidebarSort::Cardinality,
-            "size" => SidebarSort::Size, "quality" => SidebarSort::Quality, _ => SidebarSort::Name,
+            "null_rate" => SidebarSort::NullRate,
+            "cardinality" => SidebarSort::Cardinality,
+            "size" => SidebarSort::Size,
+            "quality" => SidebarSort::Quality,
+            _ => SidebarSort::Name,
         };
         self.sidebar_sort_asc = s.sidebar_sort_asc;
         self.show_bookmarks_only = s.show_bookmarks_only;
@@ -262,11 +395,22 @@ impl App {
     pub fn cycle_profiling_mode(&mut self) {
         match self.profiling_mode {
             ProfilingMode::Metadata => {
-                let large = self.file_info.as_ref().map(|f| f.file_size > 1024*1024*1024).unwrap_or(false);
-                if large { self.view = View::ConfirmFullScan; self.focus = Focus::Overlay; }
-                else { self.profiling_mode = ProfilingMode::FullScan; self.pending_full_scan = true; }
+                let large = self
+                    .file_info
+                    .as_ref()
+                    .map(|f| f.file_size > 1024 * 1024 * 1024)
+                    .unwrap_or(false);
+                if large {
+                    self.view = View::ConfirmFullScan;
+                    self.focus = Focus::Overlay;
+                } else {
+                    self.profiling_mode = ProfilingMode::FullScan;
+                    self.pending_full_scan = true;
+                }
             }
-            ProfilingMode::FullScan => { self.profiling_mode = ProfilingMode::Metadata; }
+            ProfilingMode::FullScan => {
+                self.profiling_mode = ProfilingMode::Metadata;
+            }
         }
     }
 }

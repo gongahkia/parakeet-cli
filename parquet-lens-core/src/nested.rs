@@ -1,9 +1,9 @@
-use serde::{Serialize, Deserialize};
-use std::path::Path;
 use bytes::Bytes;
 use memmap2::Mmap;
 use parquet::file::reader::{FileReader, SerializedFileReader};
 use parquet_lens_common::{ParquetLensError, Result};
+use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct NestedColumnProfile {
@@ -29,10 +29,16 @@ pub fn profile_nested_columns(path: &Path) -> Result<Vec<NestedColumnProfile>> {
         let col = schema.column(i);
         let path_str = col.path().string(); // dot-separated path
         let depth = path_str.chars().filter(|&c| c == '.').count(); // dots = depth
-        if depth == 0 { continue; } // flat column, skip
+        if depth == 0 {
+            continue;
+        } // flat column, skip
         let path_lower = path_str.to_lowercase();
-        let is_list = path_lower.contains(".list.") || path_lower.ends_with(".list") || path_lower.contains(".element");
-        let is_map = path_lower.contains("key_value") || path_lower.contains(".key") || path_lower.contains(".value") && !is_list;
+        let is_list = path_lower.contains(".list.")
+            || path_lower.ends_with(".list")
+            || path_lower.contains(".element");
+        let is_map = path_lower.contains("key_value")
+            || path_lower.contains(".key")
+            || path_lower.contains(".value") && !is_list;
         let is_struct = !is_list && !is_map;
         profiles.push(NestedColumnProfile {
             column_name: col.name().to_owned(),

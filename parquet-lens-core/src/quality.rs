@@ -1,8 +1,8 @@
-use std::path::Path;
-use serde::{Deserialize, Serialize};
 use arrow::array::Array;
 use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
 use parquet_lens_common::{ParquetLensError, Result};
+use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 // task 23: per-column quality score
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26,17 +26,33 @@ pub fn score_column(
     let mut score: f64 = 100.0;
     let mut notes = Vec::new();
     // null penalty: each 1% above 5% costs 2 points
-    let null_penalty = if null_percentage > 5.0 { (null_percentage - 5.0) * 2.0 } else { 0.0 };
+    let null_penalty = if null_percentage > 5.0 {
+        (null_percentage - 5.0) * 2.0
+    } else {
+        0.0
+    };
     score -= null_penalty.min(60.0);
-    if null_penalty > 0.0 { notes.push(format!("null_rate={null_percentage:.1}%")); }
+    if null_penalty > 0.0 {
+        notes.push(format!("null_rate={null_percentage:.1}%"));
+    }
     // constant column
     let is_constant = distinct_count.map_or(false, |d| d <= 1);
-    if is_constant { score -= 20.0; notes.push("constant_column".into()); }
+    if is_constant {
+        score -= 20.0;
+        notes.push("constant_column".into());
+    }
     // high cardinality (= row count, likely an ID or raw event column)
-    let cardinality_flag = distinct_count.map_or(false, |d| total_rows > 0 && d as i64 == total_rows);
-    if cardinality_flag { score -= 5.0; notes.push("cardinality=row_count".into()); }
+    let cardinality_flag =
+        distinct_count.map_or(false, |d| total_rows > 0 && d as i64 == total_rows);
+    if cardinality_flag {
+        score -= 5.0;
+        notes.push("cardinality=row_count".into());
+    }
     // plain-only encoding
-    if is_plain_only { score -= 5.0; notes.push("plain_only_encoding".into()); }
+    if is_plain_only {
+        score -= 5.0;
+        notes.push("plain_only_encoding".into());
+    }
     QualityScore {
         column_name: column_name.to_owned(),
         score: score.max(0.0).round() as u8,
@@ -58,15 +74,36 @@ pub struct DatasetQuality {
     pub column_scores: Vec<QualityScore>,
 }
 
-pub fn summarize_quality(scores: Vec<QualityScore>, total_cells: i64, total_nulls: u64, schema_consistent: bool) -> DatasetQuality {
-    let overall_score = if scores.is_empty() { 100 } else {
+pub fn summarize_quality(
+    scores: Vec<QualityScore>,
+    total_cells: i64,
+    total_nulls: u64,
+    schema_consistent: bool,
+) -> DatasetQuality {
+    let overall_score = if scores.is_empty() {
+        100
+    } else {
         (scores.iter().map(|s| s.score as u32).sum::<u32>() / scores.len() as u32) as u8
     };
-    let total_null_cell_pct = if total_cells > 0 { total_nulls as f64 / total_cells as f64 * 100.0 } else { 0.0 };
+    let total_null_cell_pct = if total_cells > 0 {
+        total_nulls as f64 / total_cells as f64 * 100.0
+    } else {
+        0.0
+    };
     let mut sorted = scores.clone();
     sorted.sort_by(|a, b| a.score.cmp(&b.score));
-    let worst_columns = sorted.iter().take(5).map(|s| s.column_name.clone()).collect();
-    DatasetQuality { overall_score, total_null_cell_pct, worst_columns, schema_consistent, column_scores: scores }
+    let worst_columns = sorted
+        .iter()
+        .take(5)
+        .map(|s| s.column_name.clone())
+        .collect();
+    DatasetQuality {
+        overall_score,
+        total_null_cell_pct,
+        worst_columns,
+        schema_consistent,
+        column_scores: scores,
+    }
 }
 
 // task 25: duplicate row detection with bloom filter + xxhash
@@ -78,15 +115,16 @@ pub struct DuplicateReport {
 }
 
 pub fn detect_duplicates(path: &Path) -> Result<DuplicateReport> {
-    use xxhash_rust::xxh3::xxh3_64;
     use bloomfilter::Bloom;
+    use xxhash_rust::xxh3::xxh3_64;
 
     let file = std::fs::File::open(path)?;
-    let builder = ParquetRecordBatchReaderBuilder::try_new(file)
-        .map_err(ParquetLensError::Parquet)?;
+    let builder =
+        ParquetRecordBatchReaderBuilder::try_new(file).map_err(ParquetLensError::Parquet)?;
     // estimate row count from metadata for bloom sizing
     let total_rows_estimate = builder.metadata().file_metadata().num_rows().max(1) as usize;
-    let reader = builder.with_batch_size(65536)
+    let reader = builder
+        .with_batch_size(65536)
         .build()
         .map_err(ParquetLensError::Parquet)?;
     // bloom filter: 1% false positive rate, capped at 50M to prevent OOM
@@ -102,37 +140,52 @@ pub fn detect_duplicates(path: &Path) -> Result<DuplicateReport> {
                 if !col.is_null(row) {
                     match col.data_type() {
                         arrow::datatypes::DataType::Int32 => {
-                            if let Some(arr) = col.as_any().downcast_ref::<arrow::array::Int32Array>() {
+                            if let Some(arr) =
+                                col.as_any().downcast_ref::<arrow::array::Int32Array>()
+                            {
                                 row_bytes.extend_from_slice(&arr.value(row).to_le_bytes());
                             }
                         }
                         arrow::datatypes::DataType::Int64 => {
-                            if let Some(arr) = col.as_any().downcast_ref::<arrow::array::Int64Array>() {
+                            if let Some(arr) =
+                                col.as_any().downcast_ref::<arrow::array::Int64Array>()
+                            {
                                 row_bytes.extend_from_slice(&arr.value(row).to_le_bytes());
                             }
                         }
                         arrow::datatypes::DataType::Float32 => {
-                            if let Some(arr) = col.as_any().downcast_ref::<arrow::array::Float32Array>() {
+                            if let Some(arr) =
+                                col.as_any().downcast_ref::<arrow::array::Float32Array>()
+                            {
                                 row_bytes.extend_from_slice(&arr.value(row).to_le_bytes());
                             }
                         }
                         arrow::datatypes::DataType::Float64 => {
-                            if let Some(arr) = col.as_any().downcast_ref::<arrow::array::Float64Array>() {
+                            if let Some(arr) =
+                                col.as_any().downcast_ref::<arrow::array::Float64Array>()
+                            {
                                 row_bytes.extend_from_slice(&arr.value(row).to_le_bytes());
                             }
                         }
                         arrow::datatypes::DataType::Boolean => {
-                            if let Some(arr) = col.as_any().downcast_ref::<arrow::array::BooleanArray>() {
+                            if let Some(arr) =
+                                col.as_any().downcast_ref::<arrow::array::BooleanArray>()
+                            {
                                 row_bytes.push(arr.value(row) as u8);
                             }
                         }
                         arrow::datatypes::DataType::Utf8 => {
-                            if let Some(arr) = col.as_any().downcast_ref::<arrow::array::StringArray>() {
+                            if let Some(arr) =
+                                col.as_any().downcast_ref::<arrow::array::StringArray>()
+                            {
                                 row_bytes.extend_from_slice(arr.value(row).as_bytes());
                             }
                         }
                         arrow::datatypes::DataType::LargeUtf8 => {
-                            if let Some(arr) = col.as_any().downcast_ref::<arrow::array::LargeStringArray>() {
+                            if let Some(arr) = col
+                                .as_any()
+                                .downcast_ref::<arrow::array::LargeStringArray>()
+                            {
                                 row_bytes.extend_from_slice(arr.value(row).as_bytes());
                             }
                         }
@@ -151,6 +204,14 @@ pub fn detect_duplicates(path: &Path) -> Result<DuplicateReport> {
             total_rows += 1;
         }
     }
-    let estimated_duplicate_pct = if total_rows > 0 { estimated_dups as f64 / total_rows as f64 * 100.0 } else { 0.0 };
-    Ok(DuplicateReport { total_rows, estimated_duplicates: estimated_dups, estimated_duplicate_pct })
+    let estimated_duplicate_pct = if total_rows > 0 {
+        estimated_dups as f64 / total_rows as f64 * 100.0
+    } else {
+        0.0
+    };
+    Ok(DuplicateReport {
+        total_rows,
+        estimated_duplicates: estimated_dups,
+        estimated_duplicate_pct,
+    })
 }

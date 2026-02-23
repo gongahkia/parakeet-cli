@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
-use crate::stats::{EncodingAnalysis, CompressionAnalysis, AggregatedColumnStats, RowGroupProfile};
 use crate::schema::ColumnSchema;
+use crate::stats::{AggregatedColumnStats, CompressionAnalysis, EncodingAnalysis, RowGroupProfile};
+use serde::{Deserialize, Serialize};
 
 // --- Task 60: encoding recommendation ---
 
@@ -60,10 +60,18 @@ pub struct RowGroupSizeRecommendation {
     pub action: String,
 }
 
-pub fn recommend_row_group_size(row_groups: &[RowGroupProfile]) -> Option<RowGroupSizeRecommendation> {
-    if row_groups.is_empty() { return None; }
+pub fn recommend_row_group_size(
+    row_groups: &[RowGroupProfile],
+) -> Option<RowGroupSizeRecommendation> {
+    if row_groups.is_empty() {
+        return None;
+    }
     let target_bytes: u64 = 128 * 1024 * 1024; // 128MB
-    let avg_bytes = row_groups.iter().map(|rg| rg.total_byte_size as u64).sum::<u64>() / row_groups.len() as u64;
+    let avg_bytes = row_groups
+        .iter()
+        .map(|rg| rg.total_byte_size as u64)
+        .sum::<u64>()
+        / row_groups.len() as u64;
     let ratio = avg_bytes as f64 / target_bytes as f64;
     let (recommendation, action) = if ratio < 0.25 {
         ("Row groups are much smaller than 128MB target — consider increasing row group size for better read efficiency.".into(),
@@ -72,12 +80,20 @@ pub fn recommend_row_group_size(row_groups: &[RowGroupProfile]) -> Option<RowGro
         ("Row groups are below 128MB target — consider merging small files or increasing row group size.".into(),
          "Set row_group_size to reach ~128MB per group".into())
     } else if ratio > 4.0 {
-        ("Row groups are much larger than 128MB — this may reduce parallelism for readers.".into(),
-         "Rewrite with row_group_size capped at 128MB".into())
+        (
+            "Row groups are much larger than 128MB — this may reduce parallelism for readers."
+                .into(),
+            "Rewrite with row_group_size capped at 128MB".into(),
+        )
     } else {
         return None; // within acceptable range
     };
-    Some(RowGroupSizeRecommendation { current_avg_bytes: avg_bytes, target_bytes, recommendation, action })
+    Some(RowGroupSizeRecommendation {
+        current_avg_bytes: avg_bytes,
+        target_bytes,
+        recommendation,
+        action,
+    })
 }
 
 // --- Task 61: compression recommendation ---
@@ -91,25 +107,46 @@ pub struct CompressionRecommendation {
     pub reason: String,
 }
 
-pub fn recommend_compression(compression: &[CompressionAnalysis]) -> Vec<CompressionRecommendation> {
-    compression.iter().filter_map(|c| {
-        if c.codec == "ZSTD" { return None; } // already optimal
-        let (recommended, estimated_savings_pct, reason) = if c.is_uncompressed {
-            ("ZSTD".into(), 40.0, "uncompressed column — ZSTD typically achieves 40%+ savings".into())
-        } else if c.codec == "SNAPPY" {
-            ("ZSTD".into(), 15.0, "ZSTD achieves ~15% better ratio than SNAPPY with comparable speed".into())
-        } else if c.codec == "GZIP" {
-            ("ZSTD".into(), 5.0, "ZSTD matches GZIP compression with significantly faster decompression".into())
-        } else {
-            return None;
-        };
-        if estimated_savings_pct < 20.0 && !c.is_uncompressed { return None; }
-        Some(CompressionRecommendation {
-            column_name: c.column_name.clone(),
-            current_codec: c.codec.clone(),
-            recommended_codec: recommended,
-            estimated_savings_pct,
-            reason,
+pub fn recommend_compression(
+    compression: &[CompressionAnalysis],
+) -> Vec<CompressionRecommendation> {
+    compression
+        .iter()
+        .filter_map(|c| {
+            if c.codec == "ZSTD" {
+                return None;
+            } // already optimal
+            let (recommended, estimated_savings_pct, reason) = if c.is_uncompressed {
+                (
+                    "ZSTD".into(),
+                    40.0,
+                    "uncompressed column — ZSTD typically achieves 40%+ savings".into(),
+                )
+            } else if c.codec == "SNAPPY" {
+                (
+                    "ZSTD".into(),
+                    15.0,
+                    "ZSTD achieves ~15% better ratio than SNAPPY with comparable speed".into(),
+                )
+            } else if c.codec == "GZIP" {
+                (
+                    "ZSTD".into(),
+                    5.0,
+                    "ZSTD matches GZIP compression with significantly faster decompression".into(),
+                )
+            } else {
+                return None;
+            };
+            if estimated_savings_pct < 20.0 && !c.is_uncompressed {
+                return None;
+            }
+            Some(CompressionRecommendation {
+                column_name: c.column_name.clone(),
+                current_codec: c.codec.clone(),
+                recommended_codec: recommended,
+                estimated_savings_pct,
+                reason,
+            })
         })
-    }).collect()
+        .collect()
 }

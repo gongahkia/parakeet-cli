@@ -1,9 +1,9 @@
-use std::path::Path;
-use parquet::file::reader::{FileReader, SerializedFileReader};
-use serde::{Deserialize, Serialize};
 use bytes::Bytes;
 use memmap2::Mmap;
+use parquet::file::reader::{FileReader, SerializedFileReader};
 use parquet_lens_common::{ParquetLensError, Result};
+use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ColumnSchema {

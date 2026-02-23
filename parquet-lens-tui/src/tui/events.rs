@@ -1,20 +1,44 @@
-use std::path::Path;
-use crossterm::event::{KeyCode, KeyEvent};
 use crate::tui::app::{App, Focus, ProfilingMode, SidebarSort, View};
-use parquet_lens_core::{parse_predicate, filter_count, BaselineProfile, analyze_null_patterns, detect_duplicates, export_json, identify_engine, load_baseline_regressions, ColumnSchema};
+use crossterm::event::{KeyCode, KeyEvent};
+use parquet_lens_core::{
+    analyze_null_patterns, detect_duplicates, export_json, filter_count, identify_engine,
+    load_baseline_regressions, parse_predicate, BaselineProfile, ColumnSchema,
+};
+use std::path::Path;
 
 pub fn handle_key(app: &mut App, key: KeyEvent) {
     match key.code {
-        KeyCode::Char('q') => { app.should_quit = true; return; }
-        KeyCode::Tab => { app.cycle_focus(); return; }
-        KeyCode::Char('?') => {
-            if app.view == View::Help { app.view = View::FileOverview; app.help_scroll = 0; }
-            else { app.view = View::Help; }
+        KeyCode::Char('q') => {
+            app.should_quit = true;
             return;
         }
-        KeyCode::Char('j') if app.view == View::Help => { app.help_scroll += 1; return; }
-        KeyCode::Char('k') if app.view == View::Help => { if app.help_scroll > 0 { app.help_scroll -= 1; } return; }
-        KeyCode::Char('m') => { app.cycle_profiling_mode(); return; }
+        KeyCode::Tab => {
+            app.cycle_focus();
+            return;
+        }
+        KeyCode::Char('?') => {
+            if app.view == View::Help {
+                app.view = View::FileOverview;
+                app.help_scroll = 0;
+            } else {
+                app.view = View::Help;
+            }
+            return;
+        }
+        KeyCode::Char('j') if app.view == View::Help => {
+            app.help_scroll += 1;
+            return;
+        }
+        KeyCode::Char('k') if app.view == View::Help => {
+            if app.help_scroll > 0 {
+                app.help_scroll -= 1;
+            }
+            return;
+        }
+        KeyCode::Char('m') => {
+            app.cycle_profiling_mode();
+            return;
+        }
         _ => {}
     }
     match app.focus {
@@ -27,9 +51,16 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
 fn handle_sidebar(app: &mut App, key: KeyEvent) {
     if app.sidebar_searching {
         match key.code {
-            KeyCode::Esc | KeyCode::Enter => { app.sidebar_searching = false; }
-            KeyCode::Backspace => { app.sidebar_search.pop(); }
-            KeyCode::Char(c) => { app.sidebar_search.push(c); app.sidebar_selected = 0; }
+            KeyCode::Esc | KeyCode::Enter => {
+                app.sidebar_searching = false;
+            }
+            KeyCode::Backspace => {
+                app.sidebar_search.pop();
+            }
+            KeyCode::Char(c) => {
+                app.sidebar_search.push(c);
+                app.sidebar_selected = 0;
+            }
             _ => {}
         }
         return;
@@ -37,8 +68,16 @@ fn handle_sidebar(app: &mut App, key: KeyEvent) {
     match key.code {
         KeyCode::Char('j') | KeyCode::Down => app.sidebar_down(),
         KeyCode::Char('k') | KeyCode::Up => app.sidebar_up(),
-        KeyCode::PageDown => { for _ in 0..10 { app.sidebar_down(); } }
-        KeyCode::PageUp => { for _ in 0..10 { app.sidebar_up(); } }
+        KeyCode::PageDown => {
+            for _ in 0..10 {
+                app.sidebar_down();
+            }
+        }
+        KeyCode::PageUp => {
+            for _ in 0..10 {
+                app.sidebar_up();
+            }
+        }
         KeyCode::Enter => {
             let indices = app.filtered_column_indices();
             if let Some(&col_idx) = indices.get(app.sidebar_selected) {
@@ -56,19 +95,31 @@ fn handle_sidebar(app: &mut App, key: KeyEvent) {
         KeyCode::Char('X') => app.view = View::Nested,     // nested type profile
         KeyCode::Char('W') => app.view = View::Repair,     // repair suggestions
         KeyCode::Char('Q') => app.view = View::Partitions, // partition info
-        KeyCode::Char('/') => { app.sidebar_searching = true; app.sidebar_search.clear(); }
+        KeyCode::Char('/') => {
+            app.sidebar_searching = true;
+            app.sidebar_search.clear();
+        }
         KeyCode::Char('o') => {
             app.sidebar_sort = match app.sidebar_sort {
                 SidebarSort::Name => SidebarSort::NullRate,
                 SidebarSort::NullRate => SidebarSort::Cardinality,
                 SidebarSort::Cardinality => SidebarSort::Size,
                 SidebarSort::Size => SidebarSort::Quality,
-                SidebarSort::Quality => { app.sidebar_sort_asc = !app.sidebar_sort_asc; SidebarSort::Name }
+                SidebarSort::Quality => {
+                    app.sidebar_sort_asc = !app.sidebar_sort_asc;
+                    SidebarSort::Name
+                }
             };
         }
         KeyCode::Char('b') => app.toggle_bookmark(),
-        KeyCode::Char('B') => { app.show_bookmarks_only = !app.show_bookmarks_only; app.sidebar_selected = 0; }
-        KeyCode::Char('I') => { app.show_null_hotspot_only = !app.show_null_hotspot_only; app.sidebar_selected = 0; }
+        KeyCode::Char('B') => {
+            app.show_bookmarks_only = !app.show_bookmarks_only;
+            app.sidebar_selected = 0;
+        }
+        KeyCode::Char('I') => {
+            app.show_null_hotspot_only = !app.show_null_hotspot_only;
+            app.sidebar_selected = 0;
+        }
         KeyCode::Char('K') => {
             if let Some(&col_idx) = app.filtered_column_indices().get(app.sidebar_selected) {
                 let name = app.columns()[col_idx].name.clone();
@@ -82,13 +133,20 @@ fn handle_sidebar(app: &mut App, key: KeyEvent) {
                 app.status_msg = format!("column: {name}");
             }
         }
-        KeyCode::Char('P') => { app.filter_active = true; app.view = View::FilterInput; app.focus = Focus::Overlay; }
-        KeyCode::Char('V') => {
-            match detect_duplicates(std::path::Path::new(&app.input_path)) {
-                Ok(report) => { app.duplicate_report = Some(report); app.view = View::Duplicates; }
-                Err(e) => { app.status_msg = format!("dup detect error: {e}"); }
-            }
+        KeyCode::Char('P') => {
+            app.filter_active = true;
+            app.view = View::FilterInput;
+            app.focus = Focus::Overlay;
         }
+        KeyCode::Char('V') => match detect_duplicates(std::path::Path::new(&app.input_path)) {
+            Ok(report) => {
+                app.duplicate_report = Some(report);
+                app.view = View::Duplicates;
+            }
+            Err(e) => {
+                app.status_msg = format!("dup detect error: {e}");
+            }
+        },
         KeyCode::Char('C') => {
             app.null_patterns = analyze_null_patterns(&app.agg_stats);
             app.view = View::NullPatterns;
@@ -108,25 +166,57 @@ fn handle_sidebar(app: &mut App, key: KeyEvent) {
                 let engine_info = app.engine_info.clone();
                 let schema: Vec<ColumnSchema> = app.columns().to_vec();
                 let (_, baseline_regressions) = load_baseline_regressions(
-                    std::path::Path::new(&app.input_path), &app.agg_stats, &app.quality_scores, &schema,
+                    std::path::Path::new(&app.input_path),
+                    &app.agg_stats,
+                    &app.quality_scores,
+                    &schema,
                 );
-                match export_json(&out_path, &dataset, &app.agg_stats, &app.row_groups, &app.quality_scores, &null_patterns, engine_info.as_ref(), &baseline_regressions) {
-                    Ok(_) => { app.status_msg = format!("exported to {}", out_path.display()); }
-                    Err(e) => { app.status_msg = format!("export error: {e}"); }
+                match export_json(
+                    &out_path,
+                    &dataset,
+                    &app.agg_stats,
+                    &app.row_groups,
+                    &app.quality_scores,
+                    &null_patterns,
+                    engine_info.as_ref(),
+                    &baseline_regressions,
+                ) {
+                    Ok(_) => {
+                        app.status_msg = format!("exported to {}", out_path.display());
+                    }
+                    Err(e) => {
+                        app.status_msg = format!("export error: {e}");
+                    }
                 }
             }
         }
-        KeyCode::Char('A') => { app.view = View::Baseline; }
+        KeyCode::Char('A') => {
+            app.view = View::Baseline;
+        }
         KeyCode::Char('G') => {
             // save current profile as baseline
             let schema = app.columns().to_vec();
-            let base = BaselineProfile::new(&app.input_path, schema, app.agg_stats.clone(), app.quality_scores.clone());
+            let base = BaselineProfile::new(
+                &app.input_path,
+                schema,
+                app.agg_stats.clone(),
+                app.quality_scores.clone(),
+            );
             match base.save() {
-                Ok(_) => { app.status_msg = "baseline saved".into(); app.has_baseline = true; }
-                Err(e) => { app.status_msg = format!("save baseline failed: {e}"); }
+                Ok(_) => {
+                    app.status_msg = "baseline saved".into();
+                    app.has_baseline = true;
+                }
+                Err(e) => {
+                    app.status_msg = format!("save baseline failed: {e}");
+                }
             }
         }
-        KeyCode::Esc => { app.view = View::FileOverview; app.sidebar_search.clear(); app.sidebar_searching = false; }
+        KeyCode::Esc => {
+            app.view = View::FileOverview;
+            app.sidebar_search.clear();
+            app.sidebar_searching = false;
+        }
         _ => {}
     }
 }
@@ -137,13 +227,36 @@ fn handle_main(app: &mut App, key: KeyEvent) {
         KeyCode::Char('R') => app.view = View::RowGroups,
         KeyCode::Char('N') => app.view = View::NullHeatmap,
         KeyCode::Char('D') => app.view = View::DataPreview,
-        KeyCode::Esc => { app.view = View::FileOverview; app.focus = Focus::Sidebar; }
-        KeyCode::Char('<') => { if app.rg_sort_col > 0 { app.rg_sort_col -= 1; } else { app.rg_sort_asc = !app.rg_sort_asc; } }
-        KeyCode::Char('>') => { app.rg_sort_col = (app.rg_sort_col + 1) % 5; }
-        KeyCode::Left | KeyCode::Char('H') => { if app.preview_scroll_x > 0 { app.preview_scroll_x -= 1; } }
-        KeyCode::Right | KeyCode::Char('L') => { app.preview_scroll_x += 1; }
-        KeyCode::Up => { if app.preview_scroll_y > 0 { app.preview_scroll_y -= 1; } }
-        KeyCode::Down => { app.preview_scroll_y += 1; }
+        KeyCode::Esc => {
+            app.view = View::FileOverview;
+            app.focus = Focus::Sidebar;
+        }
+        KeyCode::Char('<') => {
+            if app.rg_sort_col > 0 {
+                app.rg_sort_col -= 1;
+            } else {
+                app.rg_sort_asc = !app.rg_sort_asc;
+            }
+        }
+        KeyCode::Char('>') => {
+            app.rg_sort_col = (app.rg_sort_col + 1) % 5;
+        }
+        KeyCode::Left | KeyCode::Char('H') => {
+            if app.preview_scroll_x > 0 {
+                app.preview_scroll_x -= 1;
+            }
+        }
+        KeyCode::Right | KeyCode::Char('L') => {
+            app.preview_scroll_x += 1;
+        }
+        KeyCode::Up => {
+            if app.preview_scroll_y > 0 {
+                app.preview_scroll_y -= 1;
+            }
+        }
+        KeyCode::Down => {
+            app.preview_scroll_y += 1;
+        }
         _ => {}
     }
 }
@@ -156,21 +269,29 @@ fn handle_overlay(app: &mut App, key: KeyEvent) {
                 app.view = View::FileOverview;
                 app.focus = Focus::Sidebar;
             }
-            KeyCode::Backspace => { app.filter_input.pop(); }
+            KeyCode::Backspace => {
+                app.filter_input.pop();
+            }
             KeyCode::Enter => {
                 let expr = app.filter_input.trim().to_string();
                 if !expr.is_empty() {
                     match parse_predicate(&expr) {
-                        Err(e) => { app.status_msg = format!("parse error: {e}"); }
+                        Err(e) => {
+                            app.status_msg = format!("parse error: {e}");
+                        }
                         Ok(pred) => {
                             let path = Path::new(&app.input_path);
                             match filter_count(path, &pred) {
                                 Ok(r) => {
-                                    app.status_msg = format!("filter: {} matched / {} scanned ({} rgs skipped)",
-                                        r.matched_rows, r.scanned_rows, r.skipped_rgs);
+                                    app.status_msg = format!(
+                                        "filter: {} matched / {} scanned ({} rgs skipped)",
+                                        r.matched_rows, r.scanned_rows, r.skipped_rgs
+                                    );
                                     app.filter_result = Some(r);
                                 }
-                                Err(e) => { app.status_msg = format!("filter error: {e}"); }
+                                Err(e) => {
+                                    app.status_msg = format!("filter error: {e}");
+                                }
                             }
                         }
                     }
@@ -179,13 +300,18 @@ fn handle_overlay(app: &mut App, key: KeyEvent) {
                 app.view = View::FileOverview;
                 app.focus = Focus::Sidebar;
             }
-            KeyCode::Char(c) => { app.filter_input.push(c); }
+            KeyCode::Char(c) => {
+                app.filter_input.push(c);
+            }
             _ => {}
         }
         return;
     }
     match key.code {
-        KeyCode::Esc => { app.view = View::FileOverview; app.focus = Focus::Sidebar; }
+        KeyCode::Esc => {
+            app.view = View::FileOverview;
+            app.focus = Focus::Sidebar;
+        }
         KeyCode::Enter => {
             if app.view == View::ConfirmFullScan {
                 app.profiling_mode = ProfilingMode::FullScan;

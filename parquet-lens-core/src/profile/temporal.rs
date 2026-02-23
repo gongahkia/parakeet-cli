@@ -19,7 +19,15 @@ pub struct TemporalAccumulator {
 }
 
 impl TemporalAccumulator {
-    pub fn new() -> Self { Self { count:0,null_count:0,min:None,max:None,year_counts:std::collections::HashMap::new() } }
+    pub fn new() -> Self {
+        Self {
+            count: 0,
+            null_count: 0,
+            min: None,
+            max: None,
+            year_counts: std::collections::HashMap::new(),
+        }
+    }
     pub fn add_ms(&mut self, ts_ms: i64) {
         self.count += 1;
         self.min = Some(self.min.map_or(ts_ms, |m| m.min(ts_ms)));
@@ -28,7 +36,9 @@ impl TemporalAccumulator {
         let year = 1970 + (ts_ms as f64 / (365.25 * 86400.0 * 1000.0)) as i32;
         *self.year_counts.entry(year).or_insert(0) += 1;
     }
-    pub fn add_null(&mut self) { self.null_count += 1; }
+    pub fn add_null(&mut self) {
+        self.null_count += 1;
+    }
     pub fn finish(self) -> TemporalProfile {
         let range_days = match (self.min, self.max) {
             (Some(mn), Some(mx)) => Some((mx - mn) as f64 / (86400.0 * 1000.0)),
@@ -36,7 +46,13 @@ impl TemporalAccumulator {
         };
         let mut year_distribution: Vec<(i32, u64)> = self.year_counts.into_iter().collect();
         year_distribution.sort_by_key(|(y, _)| *y);
-        TemporalProfile { count:self.count,null_count:self.null_count,
-            min_timestamp_ms:self.min,max_timestamp_ms:self.max,range_days,year_distribution }
+        TemporalProfile {
+            count: self.count,
+            null_count: self.null_count,
+            min_timestamp_ms: self.min,
+            max_timestamp_ms: self.max,
+            range_days,
+            year_distribution,
+        }
     }
 }

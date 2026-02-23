@@ -9,11 +9,20 @@ pub struct DisplayConfig {
     pub max_rows_preview: usize,
 }
 
-fn default_theme() -> String { "dark".into() }
-fn default_max_rows() -> usize { 100 }
+fn default_theme() -> String {
+    "dark".into()
+}
+fn default_max_rows() -> usize {
+    100
+}
 
 impl Default for DisplayConfig {
-    fn default() -> Self { Self { theme: default_theme(), max_rows_preview: default_max_rows() } }
+    fn default() -> Self {
+        Self {
+            theme: default_theme(),
+            max_rows_preview: default_max_rows(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26,13 +35,23 @@ pub struct ProfilingConfig {
     pub histogram_bins: usize,
 }
 
-fn default_mode() -> String { "metadata".into() }
-fn default_sample() -> usize { 10000 }
-fn default_bins() -> usize { 30 }
+fn default_mode() -> String {
+    "metadata".into()
+}
+fn default_sample() -> usize {
+    10000
+}
+fn default_bins() -> usize {
+    30
+}
 
 impl Default for ProfilingConfig {
     fn default() -> Self {
-        Self { default_mode: default_mode(), sample_size: default_sample(), histogram_bins: default_bins() }
+        Self {
+            default_mode: default_mode(),
+            sample_size: default_sample(),
+            histogram_bins: default_bins(),
+        }
     }
 }
 
@@ -51,11 +70,20 @@ pub struct ExportConfig {
     pub output_dir: String,
 }
 
-fn default_format() -> String { "json".into() }
-fn default_output_dir() -> String { ".".into() }
+fn default_format() -> String {
+    "json".into()
+}
+fn default_output_dir() -> String {
+    ".".into()
+}
 
 impl Default for ExportConfig {
-    fn default() -> Self { Self { format: default_format(), output_dir: default_output_dir() } }
+    fn default() -> Self {
+        Self {
+            format: default_format(),
+            output_dir: default_output_dir(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -84,8 +112,8 @@ impl Config {
             return Ok(Self::default());
         }
         let content = std::fs::read_to_string(&path)?;
-        let cfg: Self = toml::from_str(&content)
-            .map_err(|e| crate::ParquetLensError::Other(e.to_string()))?;
+        let cfg: Self =
+            toml::from_str(&content).map_err(|e| crate::ParquetLensError::Other(e.to_string()))?;
         Ok(cfg)
     }
 

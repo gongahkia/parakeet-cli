@@ -1,20 +1,36 @@
+use arrow::array::{
+    Array, ArrayRef, BooleanArray, BooleanBuilder, Float32Array, Float64Array, Int32Array,
+    Int64Array, StringArray,
+};
+use arrow::record_batch::RecordBatch;
+use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
+use parquet::file::metadata::RowGroupMetaData;
+use parquet::file::reader::{FileReader, SerializedFileReader};
+use parquet::file::statistics::Statistics;
+use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::path::Path;
-use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
-use parquet::file::reader::{FileReader, SerializedFileReader};
-use parquet::file::metadata::RowGroupMetaData;
-use parquet::file::statistics::Statistics;
-use arrow::array::{Array, ArrayRef, BooleanArray, Int32Array, Int64Array, Float32Array, Float64Array, StringArray, BooleanBuilder};
-use arrow::record_batch::RecordBatch;
-use serde::{Deserialize, Serialize};
 
 // --- AST ---
 
 #[derive(Debug, Clone)]
-pub enum CmpOp { Eq, Ne, Lt, Le, Gt, Ge }
+pub enum CmpOp {
+    Eq,
+    Ne,
+    Lt,
+    Le,
+    Gt,
+    Ge,
+}
 
 #[derive(Debug, Clone)]
-pub enum Value { Int(i64), Float(f64), Str(String), Bool(bool), Null }
+pub enum Value {
+    Int(i64),
+    Float(f64),
+    Str(String),
+    Bool(bool),
+    Null,
+}
 
 #[derive(Debug, Clone)]
 pub enum Predicate {
@@ -38,17 +54,29 @@ pub struct FilterResult {
 
 // --- recursive descent parser ---
 
-struct Parser { tokens: Vec<String>, pos: usize }
+struct Parser {
+    tokens: Vec<String>,
+    pos: usize,
+}
 
 impl Parser {
     fn new(input: &str) -> Self {
-        Parser { tokens: tokenize(input), pos: 0 }
+        Parser {
+            tokens: tokenize(input),
+            pos: 0,
+        }
     }
-    fn peek(&self) -> Option<&str> { self.tokens.get(self.pos).map(|s| s.as_str()) }
-    fn peek_upper(&self) -> Option<String> { self.peek().map(|s| s.to_uppercase()) }
+    fn peek(&self) -> Option<&str> {
+        self.tokens.get(self.pos).map(|s| s.as_str())
+    }
+    fn peek_upper(&self) -> Option<String> {
+        self.peek().map(|s| s.to_uppercase())
+    }
     fn consume(&mut self) -> Option<&str> {
         let t = self.tokens.get(self.pos).map(|s| s.as_str());
-        if t.is_some() { self.pos += 1; }
+        if t.is_some() {
+            self.pos += 1;
+        }
         t
     }
     fn expect(&mut self, s: &str) -> Result<(), String> {
@@ -60,7 +88,9 @@ impl Parser {
     }
     fn parse(&mut self) -> Result<Predicate, String> {
         let p = self.parse_or()?;
-        if self.peek().is_some() { return Err(format!("unexpected token: '{}'", self.peek().unwrap())); }
+        if self.peek().is_some() {
+            return Err(format!("unexpected token: '{}'", self.peek().unwrap()));
+        }
         Ok(p)
     }
     fn parse_or(&mut self) -> Result<Predicate, String> {
@@ -120,8 +150,13 @@ impl Parser {
             loop {
                 vals.push(self.parse_value()?);
                 match self.peek() {
-                    Some(",") => { self.consume(); }
-                    Some(")") => { self.consume(); break; }
+                    Some(",") => {
+                        self.consume();
+                    }
+                    Some(")") => {
+                        self.consume();
+                        break;
+                    }
                     Some(t) => return Err(format!("expected ',' or ')' in IN list, got '{t}'")),
                     None => return Err("unexpected EOF in IN list".into()),
                 }
@@ -174,7 +209,7 @@ impl Parser {
 
 fn strip_quotes(s: &str) -> String {
     if (s.starts_with('\'') && s.ends_with('\'')) || (s.starts_with('"') && s.ends_with('"')) {
-        s[1..s.len()-1].to_string()
+        s[1..s.len() - 1].to_string()
     } else {
         s.to_string()
     }
@@ -184,14 +219,21 @@ fn tokenize(input: &str) -> Vec<String> {
     let mut tokens = Vec::new();
     let mut chars = input.chars().peekable();
     while let Some(&c) = chars.peek() {
-        if c.is_whitespace() { chars.next(); continue; }
-        if c == '\'' || c == '"' { // string literal
+        if c.is_whitespace() {
+            chars.next();
+            continue;
+        }
+        if c == '\'' || c == '"' {
+            // string literal
             let q = c;
             let mut s = String::from(c);
             chars.next();
             loop {
                 match chars.next() {
-                    Some(ch) if ch == q => { s.push(ch); break; }
+                    Some(ch) if ch == q => {
+                        s.push(ch);
+                        break;
+                    }
                     Some(ch) => s.push(ch),
                     None => break,
                 }
@@ -219,11 +261,15 @@ fn tokenize(input: &str) -> Vec<String> {
         // identifier or number
         let mut word = String::new();
         while let Some(&ch) = chars.peek() {
-            if ch.is_whitespace() || "(),='\"<>!".contains(ch) { break; }
+            if ch.is_whitespace() || "(),='\"<>!".contains(ch) {
+                break;
+            }
             word.push(ch);
             chars.next();
         }
-        if !word.is_empty() { tokens.push(word); }
+        if !word.is_empty() {
+            tokens.push(word);
+        }
     }
     tokens
 }
@@ -237,7 +283,7 @@ pub fn parse_predicate(expr: &str) -> Result<Predicate, String> {
 pub fn can_skip_row_group(pred: &Predicate, rg: &RowGroupMetaData) -> bool {
     match pred {
         Predicate::And(a, b) => can_skip_row_group(a, rg) || can_skip_row_group(b, rg), // skip if EITHER side definitely false
-        Predicate::Or(a, b) => can_skip_row_group(a, rg) && can_skip_row_group(b, rg),  // skip only if BOTH sides definitely false
+        Predicate::Or(a, b) => can_skip_row_group(a, rg) && can_skip_row_group(b, rg), // skip only if BOTH sides definitely false
         Predicate::Not(_) => false, // conservative: don't skip on NOT
         Predicate::Comparison { col, op, val } => {
             let stats = find_col_stats(col, rg);
@@ -246,7 +292,9 @@ pub fn can_skip_row_group(pred: &Predicate, rg: &RowGroupMetaData) -> bool {
         Predicate::IsNull(col) => {
             // skip if null_count == 0 for all row groups (no nulls possible)
             let stats = find_col_stats(col, rg);
-            stats.map(|s| s.null_count_opt().map(|nc| nc == 0).unwrap_or(false)).unwrap_or(false)
+            stats
+                .map(|s| s.null_count_opt().map(|nc| nc == 0).unwrap_or(false))
+                .unwrap_or(false)
         }
         Predicate::IsNotNull(_) | Predicate::In { .. } | Predicate::Like { .. } => false,
     }
@@ -328,8 +376,10 @@ fn stat_can_skip(stats: &Statistics, op: &CmpOp, val: &Value) -> bool {
             };
             match op {
                 CmpOp::Eq => *v < min || *v > max,
-                CmpOp::Lt => *v <= min, CmpOp::Le => *v < min,
-                CmpOp::Gt => *v >= max, CmpOp::Ge => *v > max,
+                CmpOp::Lt => *v <= min,
+                CmpOp::Le => *v < min,
+                CmpOp::Gt => *v >= max,
+                CmpOp::Ge => *v > max,
                 CmpOp::Ne => false,
             }
         }
@@ -340,8 +390,10 @@ fn stat_can_skip(stats: &Statistics, op: &CmpOp, val: &Value) -> bool {
             };
             match op {
                 CmpOp::Eq => *v < min || *v > max,
-                CmpOp::Lt => *v <= min, CmpOp::Le => *v < min,
-                CmpOp::Gt => *v >= max, CmpOp::Ge => *v > max,
+                CmpOp::Lt => *v <= min,
+                CmpOp::Le => *v < min,
+                CmpOp::Gt => *v >= max,
+                CmpOp::Ge => *v > max,
                 CmpOp::Ne => false,
             }
         }
@@ -368,18 +420,16 @@ fn eval_predicate_batch(pred: &Predicate, batch: &RecordBatch) -> BooleanArray {
             let m = eval_predicate_batch(inner, batch);
             arrow::compute::not(&m).unwrap_or_else(|_| BooleanArray::from(vec![false; n]))
         }
-        Predicate::IsNull(col) => {
-            match batch.schema().index_of(col) {
-                Ok(i) => arrow::compute::is_null(batch.column(i)).unwrap_or_else(|_| BooleanArray::from(vec![false; n])),
-                Err(_) => BooleanArray::from(vec![false; n]),
-            }
-        }
-        Predicate::IsNotNull(col) => {
-            match batch.schema().index_of(col) {
-                Ok(i) => arrow::compute::is_not_null(batch.column(i)).unwrap_or_else(|_| BooleanArray::from(vec![false; n])),
-                Err(_) => BooleanArray::from(vec![false; n]),
-            }
-        }
+        Predicate::IsNull(col) => match batch.schema().index_of(col) {
+            Ok(i) => arrow::compute::is_null(batch.column(i))
+                .unwrap_or_else(|_| BooleanArray::from(vec![false; n])),
+            Err(_) => BooleanArray::from(vec![false; n]),
+        },
+        Predicate::IsNotNull(col) => match batch.schema().index_of(col) {
+            Ok(i) => arrow::compute::is_not_null(batch.column(i))
+                .unwrap_or_else(|_| BooleanArray::from(vec![false; n])),
+            Err(_) => BooleanArray::from(vec![false; n]),
+        },
         Predicate::Comparison { col, op, val } => eval_comparison(col, op, val, batch),
         Predicate::In { col, vals } => eval_in(col, vals, batch),
         Predicate::Like { col, pattern } => eval_like(col, pattern, batch),
@@ -409,7 +459,10 @@ fn build_mask(arr: &ArrayRef, op: &CmpOp, val: &Value, n: usize) -> BooleanArray
         if let Some(cv) = cmp_val {
             let mut b = BooleanBuilder::with_capacity(n);
             for i in 0..n {
-                if a.is_null(i) { b.append_value(false); continue; }
+                if a.is_null(i) {
+                    b.append_value(false);
+                    continue;
+                }
                 let v = a.value(i) as i64;
                 b.append_value(cmp_i64(v, op, cv));
             }
@@ -427,7 +480,10 @@ fn build_mask(arr: &ArrayRef, op: &CmpOp, val: &Value, n: usize) -> BooleanArray
         if let Some(cv) = cmp_val {
             let mut b = BooleanBuilder::with_capacity(n);
             for i in 0..n {
-                if a.is_null(i) { b.append_value(false); continue; }
+                if a.is_null(i) {
+                    b.append_value(false);
+                    continue;
+                }
                 b.append_value(cmp_i64(a.value(i), op, cv));
             }
             return b.finish();
@@ -444,7 +500,10 @@ fn build_mask(arr: &ArrayRef, op: &CmpOp, val: &Value, n: usize) -> BooleanArray
         if let Some(cv) = cmp_val {
             let mut b = BooleanBuilder::with_capacity(n);
             for i in 0..n {
-                if a.is_null(i) { b.append_value(false); continue; }
+                if a.is_null(i) {
+                    b.append_value(false);
+                    continue;
+                }
                 b.append_value(cmp_f64(a.value(i) as f64, op, cv));
             }
             return b.finish();
@@ -461,7 +520,10 @@ fn build_mask(arr: &ArrayRef, op: &CmpOp, val: &Value, n: usize) -> BooleanArray
         if let Some(cv) = cmp_val {
             let mut b = BooleanBuilder::with_capacity(n);
             for i in 0..n {
-                if a.is_null(i) { b.append_value(false); continue; }
+                if a.is_null(i) {
+                    b.append_value(false);
+                    continue;
+                }
                 b.append_value(cmp_f64(a.value(i), op, cv));
             }
             return b.finish();
@@ -473,7 +535,10 @@ fn build_mask(arr: &ArrayRef, op: &CmpOp, val: &Value, n: usize) -> BooleanArray
         if let Value::Str(sv) = val {
             let mut b = BooleanBuilder::with_capacity(n);
             for i in 0..n {
-                if a.is_null(i) { b.append_value(false); continue; }
+                if a.is_null(i) {
+                    b.append_value(false);
+                    continue;
+                }
                 let v = a.value(i);
                 let matched = match op {
                     CmpOp::Eq => v == sv.as_str(),
@@ -494,7 +559,10 @@ fn build_mask(arr: &ArrayRef, op: &CmpOp, val: &Value, n: usize) -> BooleanArray
         if let Value::Bool(bv) = val {
             let mut b = BooleanBuilder::with_capacity(n);
             for i in 0..n {
-                if a.is_null(i) { b.append_value(false); continue; }
+                if a.is_null(i) {
+                    b.append_value(false);
+                    continue;
+                }
                 let matched = match op {
                     CmpOp::Eq => a.value(i) == *bv,
                     CmpOp::Ne => a.value(i) != *bv,
@@ -510,11 +578,25 @@ fn build_mask(arr: &ArrayRef, op: &CmpOp, val: &Value, n: usize) -> BooleanArray
 }
 
 fn cmp_i64(v: i64, op: &CmpOp, cv: i64) -> bool {
-    match op { CmpOp::Eq => v == cv, CmpOp::Ne => v != cv, CmpOp::Lt => v < cv, CmpOp::Le => v <= cv, CmpOp::Gt => v > cv, CmpOp::Ge => v >= cv }
+    match op {
+        CmpOp::Eq => v == cv,
+        CmpOp::Ne => v != cv,
+        CmpOp::Lt => v < cv,
+        CmpOp::Le => v <= cv,
+        CmpOp::Gt => v > cv,
+        CmpOp::Ge => v >= cv,
+    }
 }
 
 fn cmp_f64(v: f64, op: &CmpOp, cv: f64) -> bool {
-    match op { CmpOp::Eq => v == cv, CmpOp::Ne => v != cv, CmpOp::Lt => v < cv, CmpOp::Le => v <= cv, CmpOp::Gt => v > cv, CmpOp::Ge => v >= cv }
+    match op {
+        CmpOp::Eq => v == cv,
+        CmpOp::Ne => v != cv,
+        CmpOp::Lt => v < cv,
+        CmpOp::Le => v <= cv,
+        CmpOp::Gt => v > cv,
+        CmpOp::Ge => v >= cv,
+    }
 }
 
 fn eval_in(col: &str, vals: &[Value], batch: &RecordBatch) -> BooleanArray {
@@ -526,11 +608,14 @@ fn eval_in(col: &str, vals: &[Value], batch: &RecordBatch) -> BooleanArray {
     };
     let arr = batch.column(idx);
     // build OR of equality masks
-    if vals.is_empty() { return false_arr; }
+    if vals.is_empty() {
+        return false_arr;
+    }
     let mut result = BooleanArray::from(vec![false; n]);
     for v in vals {
         let mask = build_mask(arr, &CmpOp::Eq, v, n);
-        result = arrow::compute::or(&result, &mask).unwrap_or_else(|_| BooleanArray::from(vec![false; n]));
+        result = arrow::compute::or(&result, &mask)
+            .unwrap_or_else(|_| BooleanArray::from(vec![false; n]));
     }
     result
 }
@@ -543,11 +628,16 @@ fn eval_like(col: &str, pattern: &str, batch: &RecordBatch) -> BooleanArray {
         Err(_) => return false_arr,
     };
     let arr = batch.column(idx);
-    let Some(a) = arr.as_any().downcast_ref::<StringArray>() else { return false_arr; };
+    let Some(a) = arr.as_any().downcast_ref::<StringArray>() else {
+        return false_arr;
+    };
     let re = like_to_regex(pattern);
     let mut b = BooleanBuilder::with_capacity(n);
     for i in 0..n {
-        if a.is_null(i) { b.append_value(false); continue; }
+        if a.is_null(i) {
+            b.append_value(false);
+            continue;
+        }
         b.append_value(like_match(a.value(i), &re));
     }
     b.finish()
@@ -560,38 +650,68 @@ fn like_to_regex(pattern: &str) -> Vec<LikePart> {
     let mut chars = pattern.chars().peekable();
     while let Some(c) = chars.next() {
         match c {
-            '%' => { if !literal.is_empty() { parts.push(LikePart::Literal(std::mem::take(&mut literal))); } parts.push(LikePart::Any); }
-            '_' => { if !literal.is_empty() { parts.push(LikePart::Literal(std::mem::take(&mut literal))); } parts.push(LikePart::One); }
+            '%' => {
+                if !literal.is_empty() {
+                    parts.push(LikePart::Literal(std::mem::take(&mut literal)));
+                }
+                parts.push(LikePart::Any);
+            }
+            '_' => {
+                if !literal.is_empty() {
+                    parts.push(LikePart::Literal(std::mem::take(&mut literal)));
+                }
+                parts.push(LikePart::One);
+            }
             c => literal.push(c),
         }
     }
-    if !literal.is_empty() { parts.push(LikePart::Literal(literal)); }
+    if !literal.is_empty() {
+        parts.push(LikePart::Literal(literal));
+    }
     parts
 }
 
 #[derive(Debug)]
-enum LikePart { Literal(String), Any, One }
+enum LikePart {
+    Literal(String),
+    Any,
+    One,
+}
 
 fn like_match(s: &str, parts: &[LikePart]) -> bool {
     like_match_at(s, parts)
 }
 
 fn like_match_at(s: &str, parts: &[LikePart]) -> bool {
-    if parts.is_empty() { return s.is_empty(); }
+    if parts.is_empty() {
+        return s.is_empty();
+    }
     match &parts[0] {
         LikePart::Literal(lit) => {
-            if s.starts_with(lit.as_str()) { like_match_at(&s[lit.len()..], &parts[1..]) } else { false }
+            if s.starts_with(lit.as_str()) {
+                like_match_at(&s[lit.len()..], &parts[1..])
+            } else {
+                false
+            }
         }
         LikePart::One => {
             let mut chars = s.chars();
-            if chars.next().is_some() { like_match_at(chars.as_str(), &parts[1..]) } else { false }
+            if chars.next().is_some() {
+                like_match_at(chars.as_str(), &parts[1..])
+            } else {
+                false
+            }
         }
         LikePart::Any => {
             // try matching rest of parts at every position in s
             for i in 0..=s.len() {
                 // ensure i is on char boundary
-                if !s.is_char_boundary(i) { continue; }
-                if like_match_at(&s[i..], &parts[1..]) { return true; }
+                if !s.is_char_boundary(i) {
+                    continue;
+                }
+                if like_match_at(&s[i..], &parts[1..]) {
+                    return true;
+                }
             }
             false
         }
@@ -601,8 +721,11 @@ fn like_match_at(s: &str, parts: &[LikePart]) -> bool {
 /// collect all column names referenced in predicate
 fn predicate_columns(pred: &Predicate) -> Vec<&str> {
     match pred {
-        Predicate::Comparison { col, .. } | Predicate::IsNull(col) | Predicate::IsNotNull(col)
-        | Predicate::In { col, .. } | Predicate::Like { col, .. } => vec![col.as_str()],
+        Predicate::Comparison { col, .. }
+        | Predicate::IsNull(col)
+        | Predicate::IsNotNull(col)
+        | Predicate::In { col, .. }
+        | Predicate::Like { col, .. } => vec![col.as_str()],
         Predicate::And(a, b) | Predicate::Or(a, b) => {
             let mut cols = predicate_columns(a);
             cols.extend(predicate_columns(b));
@@ -620,10 +743,16 @@ pub fn filter_count(path: &Path, predicate: &Predicate) -> Result<FilterResult, 
     let meta = reader.metadata();
     // bounds check: verify all referenced columns exist in schema
     let schema = meta.file_metadata().schema_descr();
-    let schema_names: Vec<String> = (0..schema.num_columns()).map(|i| schema.column(i).name().to_owned()).collect();
+    let schema_names: Vec<String> = (0..schema.num_columns())
+        .map(|i| schema.column(i).name().to_owned())
+        .collect();
     for col in predicate_columns(predicate) {
         if !schema_names.iter().any(|n| n == col) {
-            return Err(format!("column '{}' not found in schema (available: {})", col, schema_names.join(", ")));
+            return Err(format!(
+                "column '{}' not found in schema (available: {})",
+                col,
+                schema_names.join(", ")
+            ));
         }
     }
     let total_rgs = meta.num_row_groups();
@@ -648,7 +777,9 @@ pub fn filter_count(path: &Path, predicate: &Predicate) -> Result<FilterResult, 
         let _rg_cursor = 0usize; // tracks which RG we think we're in (approx)
         let _rows_in_rg = 0i64;
         // load rg row counts for tracking
-        let rg_row_counts: Vec<i64> = (0..total_rgs).map(|i| meta.row_group(i).num_rows()).collect();
+        let rg_row_counts: Vec<i64> = (0..total_rgs)
+            .map(|i| meta.row_group(i).num_rows())
+            .collect();
         let mut rg_idx = 0usize;
         let mut rows_seen_in_current_rg = 0i64;
         for batch_result in reader {
@@ -679,5 +810,10 @@ pub fn filter_count(path: &Path, predicate: &Predicate) -> Result<FilterResult, 
             }
         }
     }
-    Ok(FilterResult { matched_rows, scanned_rows, skipped_rgs, total_rgs })
+    Ok(FilterResult {
+        matched_rows,
+        scanned_rows,
+        skipped_rgs,
+        total_rgs,
+    })
 }

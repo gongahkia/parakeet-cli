@@ -1,13 +1,13 @@
+use crate::baseline::BaselineRegression;
+use crate::engine::EngineInfo;
+use crate::null_patterns::NullPatternGroup;
+use crate::parallel_reader::DatasetProfile;
+use crate::quality::{DatasetQuality, QualityScore};
+use crate::stats::{AggregatedColumnStats, RowGroupProfile};
+use parquet_lens_common::Result;
+use serde_json;
 use std::io::Write;
 use std::path::Path;
-use serde_json;
-use parquet_lens_common::Result;
-use crate::parallel_reader::DatasetProfile;
-use crate::stats::{AggregatedColumnStats, RowGroupProfile};
-use crate::quality::{QualityScore, DatasetQuality};
-use crate::null_patterns::NullPatternGroup;
-use crate::engine::EngineInfo;
-use crate::baseline::BaselineRegression;
 
 // --- Task 62: headless summary output ---
 
@@ -46,8 +46,7 @@ pub fn export_json(
         "baseline_regressions": baseline_regressions,
     });
     if let Some(ei) = engine_info {
-        doc["engine_info"] = serde_json::to_value(ei)
-            .unwrap_or(serde_json::Value::Null);
+        doc["engine_info"] = serde_json::to_value(ei).unwrap_or(serde_json::Value::Null);
     }
     let mut file = std::fs::File::create(output_path)?;
     serde_json::to_writer_pretty(&mut file, &doc)
@@ -65,20 +64,28 @@ pub fn export_csv(
     let mut file = std::fs::File::create(output_path)?;
     writeln!(file, "column_name,type,null_rate,cardinality,data_size_bytes,compressed_size_bytes,compression_ratio,quality_score,breakdown")?;
     for stat in agg_stats {
-        let qs = quality_scores.iter().find(|q| q.column_name == stat.column_name);
+        let qs = quality_scores
+            .iter()
+            .find(|q| q.column_name == stat.column_name);
         let quality = qs.map(|q| q.score).unwrap_or(100);
         let breakdown_raw = qs.map(|q| q.breakdown.as_str()).unwrap_or("");
         // csv-escape: wrap in quotes if contains comma, quote, or newline
-        let breakdown = if breakdown_raw.contains(',') || breakdown_raw.contains('"') || breakdown_raw.contains('\n') {
+        let breakdown = if breakdown_raw.contains(',')
+            || breakdown_raw.contains('"')
+            || breakdown_raw.contains('\n')
+        {
             format!("\"{}\"", breakdown_raw.replace('"', "\"\""))
         } else {
             breakdown_raw.to_string()
         };
-        writeln!(file, "{},{},{:.4},{},{},{},{:.4},{},{}",
+        writeln!(
+            file,
+            "{},{},{:.4},{},{},{},{:.4},{},{}",
             stat.column_name,
             "-",
             stat.null_percentage / 100.0,
-            stat.total_distinct_count_estimate.map_or("-".into(), |d| d.to_string()),
+            stat.total_distinct_count_estimate
+                .map_or("-".into(), |d| d.to_string()),
             stat.total_data_page_size,
             stat.total_compressed_size,
             stat.compression_ratio,

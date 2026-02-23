@@ -1,7 +1,7 @@
+use parquet_lens_common::Result;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use serde::{Deserialize, Serialize};
-use parquet_lens_common::Result;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ParquetFilePath {
@@ -50,17 +50,29 @@ fn scan_recursive(base: &Path, dir: &Path, out: &mut Vec<ParquetFilePath>) -> Re
 
 /// resolve a path string: single file, directory, glob pattern, or S3/GCS URI (async)
 pub async fn resolve_paths(input: &str) -> Result<Vec<ParquetFilePath>> {
-    use crate::s3_reader::{is_s3_uri, list_s3_parquet};
     use crate::gcs_reader::{is_gcs_uri, list_gcs_parquet};
+    use crate::s3_reader::{is_s3_uri, list_s3_parquet};
     // S3 URI detection
     if is_s3_uri(input) {
         let keys = list_s3_parquet(input).await?;
-        return Ok(keys.into_iter().map(|k| ParquetFilePath { path: PathBuf::from(k), partitions: HashMap::new() }).collect());
+        return Ok(keys
+            .into_iter()
+            .map(|k| ParquetFilePath {
+                path: PathBuf::from(k),
+                partitions: HashMap::new(),
+            })
+            .collect());
     }
     // GCS URI detection
     if is_gcs_uri(input) {
         let keys = list_gcs_parquet(input).await?;
-        return Ok(keys.into_iter().map(|k| ParquetFilePath { path: PathBuf::from(k), partitions: HashMap::new() }).collect());
+        return Ok(keys
+            .into_iter()
+            .map(|k| ParquetFilePath {
+                path: PathBuf::from(k),
+                partitions: HashMap::new(),
+            })
+            .collect());
     }
     // local path resolution (sync ops are fine in async context)
     let path = Path::new(input);
@@ -78,7 +90,10 @@ pub async fn resolve_paths(input: &str) -> Result<Vec<ParquetFilePath>> {
     if let Ok(entries) = glob::glob(input) {
         for entry in entries.flatten() {
             if entry.is_file() && entry.extension().and_then(|e| e.to_str()) == Some("parquet") {
-                results.push(ParquetFilePath { path: entry, partitions: HashMap::new() });
+                results.push(ParquetFilePath {
+                    path: entry,
+                    partitions: HashMap::new(),
+                });
             }
         }
     }
