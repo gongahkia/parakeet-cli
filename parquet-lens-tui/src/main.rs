@@ -149,8 +149,9 @@ fn run_tui(input_path: String, config: Config, sample_pct: Option<f64>) -> anyho
         .map(|c| c.name.clone())
         .collect();
     if !ts_cols.is_empty() {
-        if let Ok(ts) = profile_timeseries(&paths[0].path, &ts_cols) {
-            app.timeseries_profiles = ts;
+        match profile_timeseries(&paths[0].path, &ts_cols) {
+            Ok(ts) => { app.timeseries_profiles = ts; }
+            Err(e) => { app.status_msg = format!("timeseries error: {e}"); }
         }
     }
 
@@ -177,9 +178,8 @@ fn run_tui(input_path: String, config: Config, sample_pct: Option<f64>) -> anyho
 
     if let Some(pct) = sample_pct {
         let pct = pct.clamp(1.0, 100.0);
-        let sp_path = paths[0].path.to_string_lossy().to_string();
         let cfg = SampleConfig { percentage: pct };
-        match sample_row_groups(std::path::Path::new(&sp_path), &cfg, 20) {
+        match sample_row_groups(&paths[0].path, &cfg, 20) {
             Ok(sp) => {
                 app.agg_stats = sp.agg_stats;
                 app.row_groups = sp.row_groups;
