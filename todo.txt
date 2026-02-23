@@ -1,7 +1,3 @@
-(B) Implement comparison mode TUI: `compare` subcommand opens split-pane view, left = dataset A, right = dataset B, synchronized column selection — differences highlighted in yellow +compare
-(B) Implement schema diff in comparison mode: side-by-side schema display, added columns in green, removed in red, type-changed in yellow, matching columns in default color +compare
-(B) Implement statistics diff in comparison mode: for each common column, show delta between stats (null rate change, cardinality change, min/max drift, mean shift), flag significant changes (>10% relative change) in red +compare
-(B) Implement row count and size comparison summary: show delta in total rows, file count, total size, compression ratio between two datasets — useful for detecting data loss or bloat between pipeline runs +compare
 (B) Implement partition key analysis: for Hive-partitioned datasets, show partition column names, distinct partition values count, partition size distribution (rows and bytes per partition), flag skewed partitions (>3x median size) +stats
 (B) Implement column correlation matrix for numeric columns: compute pairwise Pearson correlation using streaming algorithm, display as color-coded matrix in TUI (blue=negative, red=positive, white=zero) +profile
 (B) Implement value length distribution histogram for string/binary columns: bucket by string length, render as histogram widget +profile
