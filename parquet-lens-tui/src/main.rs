@@ -68,6 +68,7 @@ enum Commands {
         #[arg(long, value_parser = parse_sample_pct)]
         sample: Option<f64>,
         #[arg(long)] watch: bool,
+        #[arg(long)] no_sample_extrapolation: bool,
     },
     Summary { path: String },
     Compare { path1: String, path2: String },
@@ -85,9 +86,9 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     let config = Config::load().unwrap_or_default();
     match cli.command {
-        Commands::Inspect { path, sample, watch } => {
+        Commands::Inspect { path, sample, watch, no_sample_extrapolation } => {
             if watch { eprintln!("--watch: not yet implemented"); }
-            run_tui(path, config, sample)?
+            run_tui(path, config, sample, no_sample_extrapolation)?
         }
         Commands::Summary { path } => run_summary(path)?,
         Commands::Compare { path1, path2 } => run_compare(path1, path2, config)?,
@@ -106,7 +107,7 @@ fn run_duplicates(input_path: String) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn run_tui(input_path: String, config: Config, sample_pct: Option<f64>) -> anyhow::Result<()> {
+fn run_tui(input_path: String, config: Config, sample_pct: Option<f64>, no_sample_extrapolation: bool) -> anyhow::Result<()> {
     let paths = rp(&input_path)?;
     if paths.is_empty() { anyhow::bail!("No Parquet files found: {input_path}"); }
     let dataset = read_metadata_parallel(&paths).map_err(|e| anyhow::anyhow!("{e}"))?;
@@ -190,7 +191,7 @@ fn run_tui(input_path: String, config: Config, sample_pct: Option<f64>) -> anyho
     app.null_patterns = analyze_null_patterns(&app.agg_stats);
 
     if let Some(pct) = sample_pct {
-        let cfg = SampleConfig { percentage: pct };
+        let cfg = SampleConfig { percentage: pct, no_extrapolation: no_sample_extrapolation };
         match sample_row_groups(&paths[0].path, &cfg, 20) {
             Ok(sp) => {
                 app.agg_stats = sp.agg_stats;

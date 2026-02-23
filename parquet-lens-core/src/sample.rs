@@ -7,6 +7,7 @@ use crate::{read_column_stats, aggregate_column_stats, profile_row_groups};
 
 pub struct SampleConfig {
     pub percentage: f64, // 0.0–100.0
+    pub no_extrapolation: bool, // when true, skip confidence extrapolation
 }
 
 pub struct SampledProfile {
@@ -41,17 +42,18 @@ pub fn sample_row_groups(path: &Path, config: &SampleConfig, histogram_bins: usi
     let sampled_row_count: i64 = selected.iter().map(|&i| meta.row_group(i).num_rows()).sum();
     let mut agg_stats = aggregate_column_stats(&col_stats_all, sampled_row_count);
 
-    // extrapolate: scale null counts + sizes by total/sampled ratio
-    let scale = total as f64 / n as f64;
-    let total_rows_est: i64 = (sampled_row_count as f64 * scale).round() as i64;
-    for s in &mut agg_stats {
-        s.total_null_count = (s.total_null_count as f64 * scale).round() as u64;
-        s.total_data_page_size = (s.total_data_page_size as f64 * scale).round() as i64;
-        s.total_compressed_size = (s.total_compressed_size as f64 * scale).round() as i64;
-        // recalculate null_percentage against extrapolated total rows
-        s.null_percentage = if total_rows_est > 0 {
-            s.total_null_count as f64 / total_rows_est as f64 * 100.0
-        } else { 0.0 };
+    // extrapolate: scale null counts + sizes by total/sampled ratio (skipped if no_extrapolation)
+    if !config.no_extrapolation {
+        let scale = total as f64 / n as f64;
+        let total_rows_est: i64 = (sampled_row_count as f64 * scale).round() as i64;
+        for s in &mut agg_stats {
+            s.total_null_count = (s.total_null_count as f64 * scale).round() as u64;
+            s.total_data_page_size = (s.total_data_page_size as f64 * scale).round() as i64;
+            s.total_compressed_size = (s.total_compressed_size as f64 * scale).round() as i64;
+            s.null_percentage = if total_rows_est > 0 {
+                s.total_null_count as f64 / total_rows_est as f64 * 100.0
+            } else { 0.0 };
+        }
     }
 
     // profile columns (full data read on selected rgs only via row group filter)
