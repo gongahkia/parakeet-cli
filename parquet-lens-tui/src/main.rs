@@ -71,7 +71,7 @@ enum Commands {
         #[arg(long)] no_sample_extrapolation: bool,
         #[arg(long)] save_baseline: bool,
     },
-    Summary { path: String },
+    Summary { path: String, #[arg(long)] save: bool },
     Compare { path1: String, path2: String },
     Export {
         path: String,
@@ -91,7 +91,7 @@ async fn main() -> anyhow::Result<()> {
             if watch { eprintln!("--watch: not yet implemented"); }
             run_tui(path, config, sample, no_sample_extrapolation, save_baseline)?
         }
-        Commands::Summary { path } => run_summary(path)?,
+        Commands::Summary { path, save } => run_summary(path, save, &config)?,
         Commands::Compare { path1, path2 } => run_compare(path1, path2, config)?,
         Commands::Export { path, format, columns, output } => run_export(path, format, columns, output, config)?,
         Commands::Duplicates { path } => run_duplicates(path)?,
@@ -321,7 +321,7 @@ fn run_compare(path1: String, path2: String, config: Config) -> anyhow::Result<(
     Ok(())
 }
 
-fn run_summary(input_path: String) -> anyhow::Result<()> {
+fn run_summary(input_path: String, save: bool, config: &Config) -> anyhow::Result<()> {
     let paths = rp(&input_path)?;
     if paths.is_empty() { anyhow::bail!("No Parquet files found: {input_path}"); }
     let (dataset, _, meta) = load_file_stats(&paths)?;
@@ -334,6 +334,14 @@ fn run_summary(input_path: String) -> anyhow::Result<()> {
     let total_nulls: u64 = agg_stats.iter().map(|s| s.total_null_count).sum();
     let quality = summarize_quality(quality_scores, total_cells, total_nulls, true);
     print_summary(&dataset, Some(&quality));
+    if save {
+        let out_dir = std::path::Path::new(&config.export.output_dir);
+        std::fs::create_dir_all(out_dir)?;
+        let out_path = out_dir.join("summary.json");
+        let doc = serde_json::json!({ "dataset": dataset, "quality": quality });
+        std::fs::write(&out_path, serde_json::to_string_pretty(&doc)?)?;
+        println!("Summary saved to {}", out_path.display());
+    }
     Ok(())
 }
 
