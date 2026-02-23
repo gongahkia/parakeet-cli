@@ -69,7 +69,14 @@ async fn fetch_s3_bytes(uri: &str, endpoint_url: Option<&str>) -> Result<Bytes> 
         .key(&s3_uri.key)
         .send()
         .await
-        .map_err(|e| ParquetLensError::Other(e.to_string()))?;
+        .map_err(|e| {
+            let msg = e.to_string();
+            if msg.contains("credentials") || msg.contains("403") || msg.contains("401") || msg.contains("NoCredentials") {
+                ParquetLensError::Auth(format!("S3 auth error: {msg}"))
+            } else {
+                ParquetLensError::Other(msg)
+            }
+        })?;
     let data = resp.body.collect().await
         .map_err(|e| ParquetLensError::Other(e.to_string()))?;
     Ok(data.into_bytes())

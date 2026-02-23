@@ -69,6 +69,10 @@ async fn fetch_gcs_bytes(uri: &str) -> Result<Bytes> {
         .bearer_auth(&token)
         .send().await
         .map_err(|e| ParquetLensError::Other(e.to_string()))?;
+    let status = resp.status();
+    if status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN {
+        return Err(ParquetLensError::Auth(format!("GCS returned HTTP {status} for {uri}")));
+    }
     let bytes = resp.bytes().await.map_err(|e| ParquetLensError::Other(e.to_string()))?;
     Ok(bytes)
 }

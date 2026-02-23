@@ -11,6 +11,8 @@ pub enum ParquetLensError {
     Parquet(#[from] parquet::errors::ParquetError),
     #[error("Arrow error: {0}")]
     Arrow(#[from] arrow::error::ArrowError),
+    #[error("Authentication error: {0}")]
+    Auth(String),
     #[error("{0}")]
     Other(String),
 }
