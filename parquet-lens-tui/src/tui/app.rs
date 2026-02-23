@@ -132,28 +132,33 @@ impl App {
             let bookmark_match = !self.show_bookmarks_only || self.bookmarks.contains(&col.name);
             search_match && bookmark_match
         }).collect();
+        // precompute lookup maps to avoid O(n) scan per sort comparison
+        let agg_map: std::collections::HashMap<&str, &AggregatedColumnStats> =
+            self.agg_stats.iter().map(|s| (s.column_name.as_str(), s)).collect();
+        let qual_map: std::collections::HashMap<&str, &QualityScore> =
+            self.quality_scores.iter().map(|s| (s.column_name.as_str(), s)).collect();
         indices.sort_by(|&a, &b| {
             let ca = &cols[a]; let cb = &cols[b];
             let ord = match self.sidebar_sort {
                 SidebarSort::Name => ca.name.cmp(&cb.name),
                 SidebarSort::NullRate => {
-                    let na = self.agg_stats.iter().find(|s| s.column_name == ca.name).map(|s| (s.null_percentage * 1000.0) as i64).unwrap_or(0);
-                    let nb = self.agg_stats.iter().find(|s| s.column_name == cb.name).map(|s| (s.null_percentage * 1000.0) as i64).unwrap_or(0);
+                    let na = agg_map.get(ca.name.as_str()).map(|s| (s.null_percentage * 1000.0) as i64).unwrap_or(0);
+                    let nb = agg_map.get(cb.name.as_str()).map(|s| (s.null_percentage * 1000.0) as i64).unwrap_or(0);
                     na.cmp(&nb)
                 }
                 SidebarSort::Quality => {
-                    let qa = self.quality_scores.iter().find(|s| s.column_name == ca.name).map(|s| s.score).unwrap_or(100);
-                    let qb = self.quality_scores.iter().find(|s| s.column_name == cb.name).map(|s| s.score).unwrap_or(100);
+                    let qa = qual_map.get(ca.name.as_str()).map(|s| s.score).unwrap_or(100);
+                    let qb = qual_map.get(cb.name.as_str()).map(|s| s.score).unwrap_or(100);
                     qa.cmp(&qb)
                 }
                 SidebarSort::Size => {
-                    let sa = self.agg_stats.iter().find(|s| s.column_name == ca.name).map(|s| s.total_data_page_size).unwrap_or(0);
-                    let sb = self.agg_stats.iter().find(|s| s.column_name == cb.name).map(|s| s.total_data_page_size).unwrap_or(0);
+                    let sa = agg_map.get(ca.name.as_str()).map(|s| s.total_data_page_size).unwrap_or(0);
+                    let sb = agg_map.get(cb.name.as_str()).map(|s| s.total_data_page_size).unwrap_or(0);
                     sa.cmp(&sb)
                 }
                 SidebarSort::Cardinality => {
-                    let ca2 = self.agg_stats.iter().find(|s| s.column_name == ca.name).and_then(|s| s.total_distinct_count_estimate).unwrap_or(0);
-                    let cb2 = self.agg_stats.iter().find(|s| s.column_name == cb.name).and_then(|s| s.total_distinct_count_estimate).unwrap_or(0);
+                    let ca2 = agg_map.get(ca.name.as_str()).and_then(|s| s.total_distinct_count_estimate).unwrap_or(0);
+                    let cb2 = agg_map.get(cb.name.as_str()).and_then(|s| s.total_distinct_count_estimate).unwrap_or(0);
                     ca2.cmp(&cb2)
                 }
             };
