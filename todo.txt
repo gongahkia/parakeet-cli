@@ -1,4 +1,3 @@
-(B) Add mouse scroll support in TUI event loop in `parquet-lens-tui/src/main.rs`: handle `Event::Mouse(MouseEvent { kind: MouseEventKind::ScrollDown/Up, .. })` to update `preview_scroll_y` or `sidebar_selected` depending on focus +feature +dx
 (B) In `parquet-lens-core/src/profile/full_scan.rs`, add a `timeout_secs: Option<u64>` parameter that aborts the full scan early and returns partial results with a `truncated: true` flag, to bound full-scan time on very large files +feature +stability
 (B) In `parquet-lens-tui/src/tui/events.rs`, add `KeyCode::Char('H')` and `KeyCode::Char('L')` (vim-style) as aliases for `Left`/`Right` in `handle_main` for consistent vim navigation +dx
 (B) In `parquet-lens-tui/src/tui/events.rs`, add `KeyCode::PageDown` and `KeyCode::PageUp` to `handle_sidebar` to jump 10 rows at a time in the column sidebar +dx
