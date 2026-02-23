@@ -113,8 +113,22 @@ fn render_duplicates(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
 }
 
 fn render_repair(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
+    // split area: top for rg size recommendation, bottom for repair table
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(if app.rg_size_recommendation.is_some() { 4 } else { 0 }), Constraint::Min(0)])
+        .split(area);
+    if let Some(rg_rec) = &app.rg_size_recommendation {
+        let text = vec![
+            Line::from(vec![Span::styled("Row Group Size: ", Style::default().add_modifier(Modifier::BOLD)), Span::raw(format!("avg {} / target {}", fmt_bytes(rg_rec.current_avg_bytes), fmt_bytes(rg_rec.target_bytes)))]),
+            Line::from(rg_rec.recommendation.clone()),
+            Line::from(Span::styled(rg_rec.action.clone(), Style::default().fg(theme.warning))),
+        ];
+        frame.render_widget(Paragraph::new(text).block(Block::default().borders(Borders::ALL).title("Row Group Size")).wrap(Wrap { trim: false }), chunks[0]);
+    }
+    let main_area = if app.rg_size_recommendation.is_some() { chunks[1] } else { area };
     if app.repair_suggestions.is_empty() {
-        frame.render_widget(Paragraph::new("No repair suggestions — file looks healthy.").block(Block::default().borders(Borders::ALL).title("Repair Suggestions (W)")), area);
+        frame.render_widget(Paragraph::new("No repair suggestions — file looks healthy.").block(Block::default().borders(Borders::ALL).title("Repair Suggestions (W)")), main_area);
         return;
     }
     let header = Row::new(["Severity","Issue","Recommendation"].map(|h| Cell::from(h).style(Style::default().add_modifier(Modifier::BOLD))));
@@ -128,7 +142,7 @@ fn render_repair(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
     }).collect();
     let table = Table::new(rows, [Constraint::Length(8), Constraint::Min(30), Constraint::Min(40)])
         .header(header).block(Block::default().borders(Borders::ALL).title("Repair Suggestions (W)"));
-    frame.render_widget(table, area);
+    frame.render_widget(table, main_area);
 }
 
 fn render_timeseries(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {

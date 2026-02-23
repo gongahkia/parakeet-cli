@@ -1,4 +1,4 @@
-name: CI
+name: Parakeet CLI CI/CD on push
 on:
   push:
     branches: [main]

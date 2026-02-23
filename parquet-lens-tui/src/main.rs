@@ -23,6 +23,7 @@ use parquet_lens_core::{
     compare_datasets, profile_columns, detect_duplicates,
     is_s3_uri, read_s3_parquet_metadata,
     is_gcs_uri, read_gcs_parquet_metadata,
+    recommend_row_group_size,
     ParquetFilePath, AggregatedColumnStats, EncodingAnalysis, QualityScore,
     DatasetProfile, ParquetFileInfo,
 };
@@ -157,6 +158,7 @@ fn run_tui(input_path: String, config: Config, sample_pct: Option<f64>, no_sampl
 
     // repair suggestions
     app.repair_suggestions = detect_repair_suggestions(&app.row_groups, &app.agg_stats, &app.encoding_analysis);
+    app.rg_size_recommendation = recommend_row_group_size(&app.row_groups);
 
     // time-series profiling — detect timestamp/date columns from schema
     let ts_cols: Vec<String> = dataset.combined_schema.iter()

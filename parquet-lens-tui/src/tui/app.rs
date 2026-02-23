@@ -5,6 +5,7 @@ use parquet_lens_core::{
     QualityScore, ColumnProfileResult, DatasetComparison, FilterResult,
     RepairSuggestion, TimeSeriesProfile, NestedColumnProfile,
     EngineInfo, NullPatternGroup, BaselineRegression, DuplicateReport,
+    RowGroupSizeRecommendation,
 };
 use parquet_lens_common::Config;
 use crate::tui::theme::Theme;
@@ -63,6 +64,7 @@ pub struct App {
     pub filter_result: Option<FilterResult>,
     pub sample_note: Option<String>,
     pub repair_suggestions: Vec<RepairSuggestion>,
+    pub rg_size_recommendation: Option<RowGroupSizeRecommendation>,
     pub timeseries_profiles: Vec<TimeSeriesProfile>,
     pub nested_profiles: Vec<NestedColumnProfile>,
     pub engine_info: Option<EngineInfo>,
@@ -100,6 +102,7 @@ impl App {
             filter_input: String::new(), filter_active: false, filter_result: None,
             sample_note: None,
             repair_suggestions: Vec::new(),
+            rg_size_recommendation: None,
             timeseries_profiles: Vec::new(),
             nested_profiles: Vec::new(),
             engine_info: None,
