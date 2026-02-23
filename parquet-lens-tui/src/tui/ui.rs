@@ -23,7 +23,7 @@ pub fn render(frame: &mut Frame, app: &App) {
     render_sidebar(frame, app, mid[0], &theme);
     render_main(frame, app, mid[1], &theme);
     render_bottombar(frame, app, chunks[2], &theme);
-    if app.view == View::Help { render_help(frame, area); }
+    if app.view == View::Help { render_help(frame, app, area); }
     if app.view == View::ConfirmFullScan { render_confirm(frame, area); }
     if app.filter_active || app.view == View::FilterInput { render_filter_overlay(frame, app, area); }
     if let ProgressState::Running { rows_processed, total_rows } = &app.progress {
@@ -527,35 +527,51 @@ fn render_filter_overlay(frame: &mut Frame, app: &App, area: Rect) {
     );
 }
 
-fn render_help(frame: &mut Frame, area: Rect) {
-    let text = vec![
-        Line::from(Span::styled("Keybindings", Style::default().add_modifier(Modifier::BOLD))),
-        Line::from("  q        Quit"),
-        Line::from("  ?        Toggle help"),
-        Line::from("  Tab      Cycle focus"),
-        Line::from("  m        Toggle profiling mode"),
-        Line::from("  S        Schema view"),
-        Line::from("  R        Row groups"),
-        Line::from("  N        Null heatmap"),
-        Line::from("  D        Data preview"),
-        Line::from("  T        Time-series profile"),
-        Line::from("  X        Nested type profile"),
-        Line::from("  W        Repair suggestions"),
-        Line::from("  V        Duplicate detection"),
-        Line::from("  C        Cross-column null patterns"),
-        Line::from("  A        Baseline diff view"),
-        Line::from("  G        Save current profile as baseline"),
-        Line::from("  P        Predicate filter mode"),
-        Line::from("  /        Search columns"),
-        Line::from("  j/k      Navigate sidebar"),
-        Line::from("  Enter    Column detail"),
-        Line::from("  </> Sort row groups"),
-        Line::from("  arrows   Scroll data preview"),
-        Line::from("  Esc      Back to overview"),
+fn render_help(frame: &mut Frame, app: &App, area: Rect) {
+    const BINDINGS: &[(&str, &str)] = &[
+        ("q",        "Quit"),
+        ("?",        "Toggle help (this view) / scroll j/k"),
+        ("Tab",      "Cycle focus sidebar ↔ main"),
+        ("m",        "Toggle profiling mode (meta / full-scan)"),
+        ("S",        "Schema view"),
+        ("R",        "Row groups"),
+        ("N",        "Null heatmap"),
+        ("D",        "Data preview"),
+        ("T",        "Time-series profile"),
+        ("X",        "Nested type profile"),
+        ("W",        "Repair suggestions"),
+        ("V",        "Duplicate detection"),
+        ("C",        "Cross-column null patterns"),
+        ("A",        "Baseline diff view"),
+        ("G",        "Save current profile as baseline"),
+        ("E",        "Export profile to JSON"),
+        ("P",        "Predicate filter mode"),
+        ("/",        "Search columns"),
+        ("I",        "Toggle null-hotspot filter (>5% null)"),
+        ("Q",        "Partitions view"),
+        ("j / k",    "Navigate sidebar up / down"),
+        ("PageUp/Dn","Jump 10 rows in sidebar"),
+        ("H / L",    "Scroll data preview left / right"),
+        ("arrows",   "Scroll data preview"),
+        ("Enter",    "Open column detail"),
+        ("< / >",   "Cycle row-group sort column"),
+        ("o",        "Cycle sidebar sort order"),
+        ("b",        "Toggle bookmark on column"),
+        ("B",        "Show bookmarked columns only"),
+        ("Esc",      "Back to file overview"),
     ];
-    let popup = centered_rect(52, 80, area);
+    let popup = centered_rect(60, 85, area);
     frame.render_widget(ratatui::widgets::Clear, popup);
-    frame.render_widget(Paragraph::new(text).block(Block::default().borders(Borders::ALL).title("Help (?)")), popup);
+    let visible = popup.height.saturating_sub(3) as usize;
+    let offset = app.help_scroll.min(BINDINGS.len().saturating_sub(1));
+    let header = Row::new(["Key", "Action"].map(|h| Cell::from(h).style(Style::default().add_modifier(Modifier::BOLD))));
+    let rows: Vec<Row> = BINDINGS.iter().skip(offset).take(visible).map(|(k, v)| {
+        Row::new([Cell::from(*k), Cell::from(*v)])
+    }).collect();
+    let table = Table::new(rows, [Constraint::Length(14), Constraint::Min(30)])
+        .header(header)
+        .block(Block::default().borders(Borders::ALL).title(format!("Help (?) — j/k scroll [{}/{}]", offset + 1, BINDINGS.len())));
+    frame.render_widget(table, popup);
 }
 
 fn render_confirm(frame: &mut Frame, area: Rect) {

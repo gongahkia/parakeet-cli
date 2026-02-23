@@ -74,6 +74,7 @@ pub struct App {
     pub baseline_captured_at: Option<u64>, // unix secs
     pub duplicate_report: Option<DuplicateReport>,
     pub theme: Theme,
+    pub help_scroll: usize, // scroll offset for help keybind table
 }
 
 impl App {
@@ -111,6 +112,7 @@ impl App {
             has_baseline: false,
             baseline_captured_at: None,
             duplicate_report: None,
+            help_scroll: 0,
         }
     }
     pub fn columns(&self) -> &[ColumnSchema] {

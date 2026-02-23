@@ -8,9 +8,12 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
         KeyCode::Char('q') => { app.should_quit = true; return; }
         KeyCode::Tab => { app.cycle_focus(); return; }
         KeyCode::Char('?') => {
-            app.view = if app.view == View::Help { View::FileOverview } else { View::Help };
+            if app.view == View::Help { app.view = View::FileOverview; app.help_scroll = 0; }
+            else { app.view = View::Help; }
             return;
         }
+        KeyCode::Char('j') if app.view == View::Help => { app.help_scroll += 1; return; }
+        KeyCode::Char('k') if app.view == View::Help => { if app.help_scroll > 0 { app.help_scroll -= 1; } return; }
         KeyCode::Char('m') => { app.cycle_profiling_mode(); return; }
         _ => {}
     }
