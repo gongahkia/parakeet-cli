@@ -128,12 +128,12 @@ pub fn detect_duplicates(path: &Path) -> Result<DuplicateReport> {
         .build()
         .map_err(ParquetLensError::Parquet)?;
     // bloom filter: 1% false positive rate, capped at 50M to prevent OOM
-    let bloom_size = total_rows_estimate.min(50_000_000).max(1000);
+    let bloom_size = total_rows_estimate.clamp(1000, 50_000_000);
     let mut bloom: Bloom<u64> = Bloom::new_for_fp_rate(bloom_size, 0.01);
     let mut total_rows = 0u64;
     let mut estimated_dups = 0u64;
     for batch_result in reader {
-        let batch = batch_result.map_err(|e| ParquetLensError::Arrow(e))?;
+        let batch = batch_result.map_err(ParquetLensError::Arrow)?;
         for row in 0..batch.num_rows() {
             let mut row_bytes = Vec::new();
             for col in batch.columns() {

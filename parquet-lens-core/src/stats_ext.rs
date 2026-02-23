@@ -81,7 +81,7 @@ pub struct CorrelationMatrix {
     pub values: Vec<Vec<f64>>, // [col_i][col_j] = pearson r
 }
 
-pub fn compute_correlation(meta: &ParquetMetaData, path: &Path) -> Result<CorrelationMatrix> {
+pub fn compute_correlation(_meta: &ParquetMetaData, path: &Path) -> Result<CorrelationMatrix> {
     use arrow::array::*;
     use arrow::datatypes::DataType;
     use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
@@ -124,7 +124,7 @@ pub fn compute_correlation(meta: &ParquetMetaData, path: &Path) -> Result<Correl
         .build()
         .map_err(ParquetLensError::Parquet)?;
     for batch_result in reader {
-        let batch = batch_result.map_err(|e| ParquetLensError::Arrow(e))?;
+        let batch = batch_result.map_err(ParquetLensError::Arrow)?;
         let batch_n = batch.num_rows();
         let vals: Vec<Vec<f64>> = (0..n)
             .map(|ci| {
@@ -225,7 +225,7 @@ pub fn string_length_histogram(path: &Path, column: &str, bins: usize) -> Result
         .map_err(ParquetLensError::Parquet)?;
     let mut lengths = Vec::new();
     for batch in reader {
-        let batch = batch.map_err(|e| ParquetLensError::Arrow(e))?;
+        let batch = batch.map_err(ParquetLensError::Arrow)?;
         let col_idx = batch
             .schema()
             .fields()
