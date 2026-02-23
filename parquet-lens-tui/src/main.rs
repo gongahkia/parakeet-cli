@@ -8,7 +8,7 @@ use crossterm::{
 };
 use ratatui::{backend::CrosstermBackend, Terminal};
 use std::{io, time::Duration};
-use tui::app::App;
+use tui::app::{App, View};
 use tui::events::handle_key;
 use tui::session::Session;
 use tui::ui::render;
@@ -20,6 +20,7 @@ use parquet_lens_core::{
     sample_row_groups, SampleConfig,
     detect_repair_suggestions, profile_timeseries, profile_nested_columns,
     identify_engine, load_baseline_regressions,
+    compare_datasets,
 };
 use parquet_lens_common::Config;
 
@@ -49,7 +50,7 @@ async fn main() -> anyhow::Result<()> {
     match cli.command {
         Commands::Inspect { path, sample } => run_tui(path, config, sample)?,
         Commands::Summary { path } => run_summary(path)?,
-        Commands::Compare { path1, path2 } => println!("compare: {path1} vs {path2}"),
+        Commands::Compare { path1, path2 } => run_compare(path1, path2, config)?,
         Commands::Export { path, format, columns } => run_export(path, format, columns)?,
     }
     Ok(())
@@ -149,6 +150,61 @@ fn run_tui(input_path: String, config: Config, sample_pct: Option<f64>) -> anyho
     }
     let _ = app.to_session().save();
 
+    disable_raw_mode()?;
+    execute!(terminal.backend_mut(), LeaveAlternateScreen, DisableMouseCapture)?;
+    terminal.show_cursor()?;
+    Ok(())
+}
+
+fn run_compare(path1: String, path2: String, config: Config) -> anyhow::Result<()> {
+    if path1.is_empty() { anyhow::bail!("path1 is empty"); }
+    if path2.is_empty() { anyhow::bail!("path2 is empty"); }
+    if !std::path::Path::new(&path1).exists() { anyhow::bail!("path1 not found: {path1}"); }
+    if !std::path::Path::new(&path2).exists() { anyhow::bail!("path2 not found: {path2}"); }
+    let paths1 = resolve_paths(&path1).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let paths2 = resolve_paths(&path2).map_err(|e| anyhow::anyhow!("{e}"))?;
+    if paths1.is_empty() { anyhow::bail!("No Parquet files found: {path1}"); }
+    if paths2.is_empty() { anyhow::bail!("No Parquet files found: {path2}"); }
+    let dataset1 = read_metadata_parallel(&paths1).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let dataset2 = read_metadata_parallel(&paths2).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let (file_info, meta) = open_parquet_file(&paths1[0].path).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let row_groups = profile_row_groups(&meta);
+    let col_stats = read_column_stats(&meta);
+    let total_rows = file_info.row_count;
+    let agg_stats = aggregate_column_stats(&col_stats, total_rows);
+    let encoding_analysis = analyze_encodings(&meta);
+    let (_, meta2) = open_parquet_file(&paths2[0].path).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let col_stats2 = read_column_stats(&meta2);
+    let agg_stats2 = aggregate_column_stats(&col_stats2, dataset2.total_rows);
+    let comparison = compare_datasets(&dataset1, &dataset2, &agg_stats, &agg_stats2);
+    let quality_scores: Vec<_> = agg_stats.iter().map(|agg| {
+        let is_plain = encoding_analysis.iter().find(|e| e.column_name == agg.column_name).map(|e| e.is_plain_only).unwrap_or(false);
+        score_column(&agg.column_name, agg.null_percentage, agg.total_distinct_count_estimate, total_rows, is_plain)
+    }).collect();
+    let mut app = App::new(path1, config);
+    app.dataset = Some(dataset1);
+    app.file_info = Some(file_info);
+    app.row_groups = row_groups;
+    app.agg_stats = agg_stats;
+    app.encoding_analysis = encoding_analysis;
+    app.quality_scores = quality_scores;
+    app.comparison = Some(comparison);
+    app.view = View::Compare;
+    app.status_msg = "Compare — q:quit ?:help".into();
+    enable_raw_mode()?;
+    let mut stdout = io::stdout();
+    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+    let backend = CrosstermBackend::new(stdout);
+    let mut terminal = Terminal::new(backend)?;
+    let tick = Duration::from_millis(66);
+    loop {
+        terminal.draw(|f| render(f, &app))?;
+        if event::poll(tick)? {
+            if let Event::Key(key) = event::read()? { handle_key(&mut app, key); }
+        }
+        if app.should_quit { break; }
+    }
+    let _ = app.to_session().save();
     disable_raw_mode()?;
     execute!(terminal.backend_mut(), LeaveAlternateScreen, DisableMouseCapture)?;
     terminal.show_cursor()?;
