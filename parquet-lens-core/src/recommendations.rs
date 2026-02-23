@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use crate::stats::{EncodingAnalysis, CompressionAnalysis, AggregatedColumnStats};
+use crate::stats::{EncodingAnalysis, CompressionAnalysis, AggregatedColumnStats, RowGroupProfile};
 use crate::schema::ColumnSchema;
 
 // --- Task 60: encoding recommendation ---
@@ -48,6 +48,36 @@ pub fn recommend_encodings(
             reason,
         })
     }).collect()
+}
+
+// --- row group size recommendation ---
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RowGroupSizeRecommendation {
+    pub current_avg_bytes: u64,
+    pub target_bytes: u64, // 128MB
+    pub recommendation: String,
+    pub action: String,
+}
+
+pub fn recommend_row_group_size(row_groups: &[RowGroupProfile]) -> Option<RowGroupSizeRecommendation> {
+    if row_groups.is_empty() { return None; }
+    let target_bytes: u64 = 128 * 1024 * 1024; // 128MB
+    let avg_bytes = row_groups.iter().map(|rg| rg.total_byte_size as u64).sum::<u64>() / row_groups.len() as u64;
+    let ratio = avg_bytes as f64 / target_bytes as f64;
+    let (recommendation, action) = if ratio < 0.25 {
+        ("Row groups are much smaller than 128MB target — consider increasing row group size for better read efficiency.".into(),
+         "Rewrite with row_group_size=128MB (e.g., PyArrow: pq.write_table(t, f, row_group_size=1_000_000))".into())
+    } else if ratio < 0.5 {
+        ("Row groups are below 128MB target — consider merging small files or increasing row group size.".into(),
+         "Set row_group_size to reach ~128MB per group".into())
+    } else if ratio > 4.0 {
+        ("Row groups are much larger than 128MB — this may reduce parallelism for readers.".into(),
+         "Rewrite with row_group_size capped at 128MB".into())
+    } else {
+        return None; // within acceptable range
+    };
+    Some(RowGroupSizeRecommendation { current_avg_bytes: avg_bytes, target_bytes, recommendation, action })
 }
 
 // --- Task 61: compression recommendation ---

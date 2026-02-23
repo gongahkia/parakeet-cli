@@ -25,7 +25,7 @@ pub use s3_reader::{S3Uri, parse_s3_uri, is_s3_uri, list_s3_parquet, read_s3_par
 pub use gcs_reader::{GcsUri, parse_gcs_uri, is_gcs_uri, list_gcs_parquet, read_gcs_parquet_metadata};
 pub use compare::{ColumnSchemaDiff, DiffStatus, ColumnStatsDiff, DatasetComparison, diff_schemas, diff_stats, compare_datasets};
 pub use stats_ext::{PartitionInfo, CorrelationMatrix, StringLengthHist, SortedOrderInfo, PageIndexInfo, BloomFilterInfo, analyze_partitions, compute_correlation, string_length_histogram, detect_sort_order, analyze_page_index, detect_bloom_filters};
-pub use recommendations::{EncodingRecommendation, CompressionRecommendation, recommend_encodings, recommend_compression};
+pub use recommendations::{EncodingRecommendation, CompressionRecommendation, RowGroupSizeRecommendation, recommend_encodings, recommend_compression, recommend_row_group_size};
 pub use export::{print_summary, export_json, export_csv};
 pub mod filter;
 pub use filter::{Predicate, FilterResult, parse_predicate, filter_count};
