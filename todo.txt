@@ -1,5 +1,3 @@
-(B) Implement encoding recommendation engine: for each column, suggest optimal encoding based on cardinality and data type (e.g., low cardinality string → DICTIONARY, sorted int → DELTA_BINARY_PACKED), show current vs recommended +quality
-(B) Implement compression recommendation: compare current codec's ratio against estimated ratios for alternatives (ZSTD typically best general-purpose), flag columns where switching codec could save >20% space +quality
 (B) Add `summary` subcommand headless output: print dataset profile as formatted table to stdout (file count, row count, columns, size, quality score, top issues), parseable with column alignment +cli
 (B) Implement JSON export: `export --format json` writes full profile (schema, per-column stats, quality scores, row group profiles, issues) to structured JSON file +export
 (B) Implement CSV export: `export --format csv` writes per-column statistics as CSV rows (column_name, type, null_rate, cardinality, min, max, mean, quality_score) +export
