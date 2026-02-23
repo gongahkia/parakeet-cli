@@ -1,7 +1,3 @@
-(B) Add `--output <path>` arg to `Export` subcommand in `Commands` enum in `parquet-lens-tui/src/main.rs`: `#[arg(long)] output: Option<String>` +feature +export
-(B) In `run_export` in `parquet-lens-tui/src/main.rs`, resolve output path by: using `--output` if provided, else `config.export.output_dir` joined with default filename (`profile.json`/`profile.csv`), instead of always hardcoding current dir +feature +export
-(B) Load `Config` in `run_export` in `parquet-lens-tui/src/main.rs` (currently `config` is not passed to `run_export`); pass it as a parameter from `main` +refactor +export
-(B) Implement column filtering in `run_export` in `parquet-lens-tui/src/main.rs`: when `--columns` is provided, filter `agg_stats` and `quality_scores` to only those column names before calling `export_json`/`export_csv` +feature +export
 (B) Replace `simple_hash` in `parquet-lens-core/src/baseline.rs` with `xxhash_rust::xxh3::xxh3_64` (already a workspace dependency); remove the custom FNV implementation +refactor +stability
 (B) Pre-compute `null_patterns` at TUI startup in `parquet-lens-tui/src/main.rs` `run_tui` by calling `analyze_null_patterns(&app.agg_stats)` and storing in `app.null_patterns`, mirroring how `baseline_regressions` is pre-computed +stability +refactor
 (B) Extract shared `compute_quality_scores(agg_stats: &[AggregatedColumnStats], encodings: &[EncodingAnalysis], total_rows: i64) -> Vec<QualityScore>` helper function in `parquet-lens-tui/src/main.rs` to eliminate triple duplication across `run_tui`, `run_summary`, and `run_export` +refactor
