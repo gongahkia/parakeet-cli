@@ -20,7 +20,7 @@ use parquet_lens_core::{
     sample_row_groups, SampleConfig,
     detect_repair_suggestions, profile_timeseries, profile_nested_columns,
     identify_engine, load_baseline_regressions,
-    compare_datasets, profile_columns,
+    compare_datasets, profile_columns, detect_duplicates,
 };
 use parquet_lens_common::Config;
 
@@ -41,6 +41,7 @@ enum Commands {
         #[arg(long, default_value = "json")] format: String,
         #[arg(long, value_delimiter = ',')] columns: Option<Vec<String>>,
     },
+    Duplicates { path: String },
 }
 
 #[tokio::main]
@@ -52,7 +53,17 @@ async fn main() -> anyhow::Result<()> {
         Commands::Summary { path } => run_summary(path)?,
         Commands::Compare { path1, path2 } => run_compare(path1, path2, config)?,
         Commands::Export { path, format, columns } => run_export(path, format, columns)?,
+        Commands::Duplicates { path } => run_duplicates(path)?,
     }
+    Ok(())
+}
+
+fn run_duplicates(input_path: String) -> anyhow::Result<()> {
+    let report = detect_duplicates(std::path::Path::new(&input_path))
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    println!("{:<24} {}", "total_rows:", report.total_rows);
+    println!("{:<24} {}", "estimated_duplicates:", report.estimated_duplicates);
+    println!("{:<24} {:.2}%", "estimated_duplicate_pct:", report.estimated_duplicate_pct);
     Ok(())
 }
 
