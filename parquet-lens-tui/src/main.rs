@@ -15,6 +15,7 @@ use parquet_lens_core::{
     resolve_paths, read_metadata_parallel, open_parquet_file,
     profile_row_groups, read_column_stats, aggregate_column_stats,
     analyze_encodings, analyze_compression, score_column,
+    summarize_quality, print_summary, export_json, export_csv,
 };
 use parquet_lens_common::Config;
 
@@ -45,7 +46,7 @@ async fn main() -> anyhow::Result<()> {
         Commands::Inspect { path } => run_tui(path, config)?,
         Commands::Summary { path } => run_summary(path)?,
         Commands::Compare { path1, path2 } => println!("compare: {path1} vs {path2}"),
-        Commands::Export { path, format, .. } => println!("export: {path} as {format}"),
+        Commands::Export { path, format, columns } => run_export(path, format, columns)?,
     }
     Ok(())
 }
@@ -103,9 +104,47 @@ fn run_summary(input_path: String) -> anyhow::Result<()> {
     let paths = resolve_paths(&input_path).map_err(|e| anyhow::anyhow!("{e}"))?;
     if paths.is_empty() { anyhow::bail!("No Parquet files found: {input_path}"); }
     let dataset = read_metadata_parallel(&paths).map_err(|e| anyhow::anyhow!("{e}"))?;
-    println!("Files:   {}", dataset.file_count);
-    println!("Rows:    {}", dataset.total_rows);
-    println!("Size:    {} bytes", dataset.total_bytes);
-    println!("Columns: {}", dataset.combined_schema.len());
+    let (_, meta) = open_parquet_file(&paths[0].path).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let col_stats = read_column_stats(&meta);
+    let total_rows = dataset.total_rows;
+    let agg_stats = aggregate_column_stats(&col_stats, total_rows);
+    let encodings = analyze_encodings(&meta);
+    let quality_scores: Vec<_> = agg_stats.iter().map(|agg| {
+        let is_plain = encodings.iter().find(|e| e.column_name == agg.column_name).map(|e| e.is_plain_only).unwrap_or(false);
+        score_column(&agg.column_name, agg.null_percentage, agg.total_distinct_count_estimate, total_rows, is_plain)
+    }).collect();
+    let total_cells = total_rows * dataset.combined_schema.len() as i64;
+    let total_nulls: u64 = agg_stats.iter().map(|s| s.total_null_count).sum();
+    let quality = summarize_quality(quality_scores, total_cells, total_nulls, true);
+    print_summary(&dataset, Some(&quality));
+    Ok(())
+}
+
+fn run_export(input_path: String, format: String, _columns: Option<Vec<String>>) -> anyhow::Result<()> {
+    let paths = resolve_paths(&input_path).map_err(|e| anyhow::anyhow!("{e}"))?;
+    if paths.is_empty() { anyhow::bail!("No Parquet files found: {input_path}"); }
+    let dataset = read_metadata_parallel(&paths).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let (_, meta) = open_parquet_file(&paths[0].path).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let col_stats = read_column_stats(&meta);
+    let row_groups = profile_row_groups(&meta);
+    let agg_stats = aggregate_column_stats(&col_stats, dataset.total_rows);
+    let encodings = analyze_encodings(&meta);
+    let quality_scores: Vec<_> = agg_stats.iter().map(|agg| {
+        let is_plain = encodings.iter().find(|e| e.column_name == agg.column_name).map(|e| e.is_plain_only).unwrap_or(false);
+        score_column(&agg.column_name, agg.null_percentage, agg.total_distinct_count_estimate, dataset.total_rows, is_plain)
+    }).collect();
+    match format.as_str() {
+        "json" => {
+            let out = std::path::Path::new("profile.json");
+            export_json(out, &dataset, &agg_stats, &row_groups, &quality_scores).map_err(|e| anyhow::anyhow!("{e}"))?;
+            println!("Exported to profile.json");
+        }
+        "csv" => {
+            let out = std::path::Path::new("profile.csv");
+            export_csv(out, &agg_stats, &quality_scores).map_err(|e| anyhow::anyhow!("{e}"))?;
+            println!("Exported to profile.csv");
+        }
+        _ => anyhow::bail!("Unknown format: {format} (use json or csv)"),
+    }
     Ok(())
 }

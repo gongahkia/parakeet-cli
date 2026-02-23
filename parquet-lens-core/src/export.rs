@@ -1,0 +1,69 @@
+use std::io::Write;
+use std::path::Path;
+use serde_json;
+use parquet_lens_common::Result;
+use crate::parallel_reader::DatasetProfile;
+use crate::stats::{AggregatedColumnStats, RowGroupProfile};
+use crate::quality::{QualityScore, DatasetQuality};
+
+// --- Task 62: headless summary output ---
+
+pub fn print_summary(dataset: &DatasetProfile, quality: Option<&DatasetQuality>) {
+    println!("{:<16} {}", "Files:", dataset.file_count);
+    println!("{:<16} {}", "Rows:", dataset.total_rows);
+    println!("{:<16} {} bytes", "Size:", dataset.total_bytes);
+    println!("{:<16} {}", "Columns:", dataset.combined_schema.len());
+    if let Some(q) = quality {
+        println!("{:<16} {}/100", "Quality:", q.overall_score);
+        println!("{:<16} {:.2}%", "Null cells:", q.total_null_cell_pct);
+        if !q.worst_columns.is_empty() {
+            println!("{:<16} {}", "Worst cols:", q.worst_columns.join(", "));
+        }
+    }
+}
+
+// --- Task 63: JSON export ---
+
+pub fn export_json(
+    output_path: &Path,
+    dataset: &DatasetProfile,
+    agg_stats: &[AggregatedColumnStats],
+    row_groups: &[RowGroupProfile],
+    quality_scores: &[QualityScore],
+) -> Result<()> {
+    let doc = serde_json::json!({
+        "dataset": dataset,
+        "column_stats": agg_stats,
+        "row_groups": row_groups,
+        "quality_scores": quality_scores,
+    });
+    let mut file = std::fs::File::create(output_path)?;
+    serde_json::to_writer_pretty(&mut file, &doc)
+        .map_err(|e| parquet_lens_common::ParquetLensError::Other(e.to_string()))?;
+    Ok(())
+}
+
+// --- Task 64: CSV export ---
+
+pub fn export_csv(
+    output_path: &Path,
+    agg_stats: &[AggregatedColumnStats],
+    quality_scores: &[QualityScore],
+) -> Result<()> {
+    let mut file = std::fs::File::create(output_path)?;
+    writeln!(file, "column_name,type,null_rate,cardinality,data_size_bytes,compressed_size_bytes,compression_ratio,quality_score")?;
+    for stat in agg_stats {
+        let quality = quality_scores.iter().find(|q| q.column_name == stat.column_name).map(|q| q.score).unwrap_or(100);
+        writeln!(file, "{},{},{:.4},{},{},{},{:.4},{}",
+            stat.column_name,
+            "-", // type from schema not available here
+            stat.null_percentage / 100.0,
+            stat.total_distinct_count_estimate.map_or("-".into(), |d| d.to_string()),
+            stat.total_data_page_size,
+            stat.total_compressed_size,
+            stat.compression_ratio,
+            quality,
+        )?;
+    }
+    Ok(())
+}
