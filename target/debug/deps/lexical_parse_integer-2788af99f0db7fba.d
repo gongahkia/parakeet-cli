@@ -1,0 +1,9 @@
+/Users/gongahkia/Desktop/coding/projects/parakeet-cli/target/debug/deps/lexical_parse_integer-2788af99f0db7fba.d: /Users/gongahkia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/lexical-parse-integer-1.0.6/src/lib.rs /Users/gongahkia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/lexical-parse-integer-1.0.6/src/algorithm.rs /Users/gongahkia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/lexical-parse-integer-1.0.6/src/options.rs /Users/gongahkia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/lexical-parse-integer-1.0.6/src/parse.rs /Users/gongahkia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/lexical-parse-integer-1.0.6/src/api.rs
+
+/Users/gongahkia/Desktop/coding/projects/parakeet-cli/target/debug/deps/liblexical_parse_integer-2788af99f0db7fba.rmeta: /Users/gongahkia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/lexical-parse-integer-1.0.6/src/lib.rs /Users/gongahkia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/lexical-parse-integer-1.0.6/src/algorithm.rs /Users/gongahkia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/lexical-parse-integer-1.0.6/src/options.rs /Users/gongahkia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/lexical-parse-integer-1.0.6/src/parse.rs /Users/gongahkia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/lexical-parse-integer-1.0.6/src/api.rs
+
+/Users/gongahkia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/lexical-parse-integer-1.0.6/src/lib.rs:
+/Users/gongahkia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/lexical-parse-integer-1.0.6/src/algorithm.rs:
+/Users/gongahkia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/lexical-parse-integer-1.0.6/src/options.rs:
+/Users/gongahkia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/lexical-parse-integer-1.0.6/src/parse.rs:
+/Users/gongahkia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/lexical-parse-integer-1.0.6/src/api.rs:
