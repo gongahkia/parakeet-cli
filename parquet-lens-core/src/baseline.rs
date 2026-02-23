@@ -60,6 +60,10 @@ impl BaselineProfile {
         for col in current_schema {
             if !self.schema.iter().any(|s| s.name == col.name) {
                 regressions.push(BaselineRegression { column: col.name.clone(), kind: "schema_added".into(), detail: format!("new column {} ({})", col.name, col.physical_type) });
+            } else if let Some(base_col) = self.schema.iter().find(|s| s.name == col.name) {
+                if base_col.physical_type != col.physical_type {
+                    regressions.push(BaselineRegression { column: col.name.clone(), kind: "type_changed".into(), detail: format!("type {} → {}", base_col.physical_type, col.physical_type) });
+                }
             }
         }
         for col in &self.schema {
