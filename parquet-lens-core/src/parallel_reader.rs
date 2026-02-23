@@ -2,8 +2,9 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use parquet_lens_common::{ParquetLensError, Result};
-use crate::reader::{open_parquet_file, SchemaFieldInfo};
+use crate::reader::open_parquet_file;
 use crate::scanner::ParquetFilePath;
+use crate::schema::{ColumnSchema, extract_schema};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DatasetProfile {
@@ -11,7 +12,7 @@ pub struct DatasetProfile {
     pub total_rows: i64,
     pub total_bytes: u64,
     pub files: Vec<FileProfile>,
-    pub combined_schema: Vec<SchemaFieldInfo>,
+    pub combined_schema: Vec<ColumnSchema>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -53,9 +54,8 @@ pub fn read_metadata_parallel(paths: &[ParquetFilePath]) -> Result<DatasetProfil
     let total_rows = files.iter().map(|f| f.row_count).sum();
     let total_bytes = files.iter().map(|f| f.file_size).sum();
 
-    // build combined schema from first file
     let combined_schema = if !paths.is_empty() {
-        open_parquet_file(&paths[0].path).map(|(info, _)| info.schema_fields).unwrap_or_default()
+        extract_schema(&paths[0].path).unwrap_or_default()
     } else {
         Vec::new()
     };

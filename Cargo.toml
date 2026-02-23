@@ -22,3 +22,6 @@ tdigest = "0.2.3"
 regex = "1"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 bloomfilter = "1"
+ratatui = "0.28"
+crossterm = { version = "0.28", features = ["event-stream"] }
+futures = "0.3"
