@@ -23,6 +23,7 @@ pub struct ColumnProfileResult {
     pub string: Option<StringProfile>,
     pub temporal: Option<TemporalProfile>,
     pub boolean: Option<BooleanProfile>,
+    pub truncated: bool, // true if scan was aborted early by timeout
 }
 
 pub fn profile_columns(
@@ -30,6 +31,16 @@ pub fn profile_columns(
     columns: Option<&[String]>,
     batch_size: usize,
     histogram_bins: usize,
+) -> Result<Vec<ColumnProfileResult>> {
+    profile_columns_with_timeout(path, columns, batch_size, histogram_bins, None)
+}
+
+pub fn profile_columns_with_timeout(
+    path: &Path,
+    columns: Option<&[String]>,
+    batch_size: usize,
+    histogram_bins: usize,
+    timeout_secs: Option<u64>,
 ) -> Result<Vec<ColumnProfileResult>> {
     let file = std::fs::File::open(path)?;
     let builder = ParquetRecordBatchReaderBuilder::try_new(file)
@@ -76,8 +87,14 @@ pub fn profile_columns(
             _ => None,
         }).collect();
     let mut numeric_vals: Vec<Vec<f64>> = (0..ncols).map(|_| Vec::new()).collect();
+    let deadline = timeout_secs.map(|s| std::time::Instant::now() + std::time::Duration::from_secs(s));
+    let mut timed_out = false;
+    let mut reader = reader.peekable();
 
-    for batch_result in reader {
+    while let Some(batch_result) = reader.next() {
+        if let Some(dl) = deadline {
+            if std::time::Instant::now() >= dl { timed_out = true; break; }
+        }
         let batch = batch_result.map_err(ParquetLensError::Arrow)?;
         for (col_idx, col_array) in batch.columns().iter().enumerate() {
             for row in 0..col_array.len() {
@@ -190,7 +207,7 @@ pub fn profile_columns(
                 }
             }
         }
-    }
+    } // end while
 
     let results = field_names.into_iter().enumerate().map(|(i, name)| {
         let cardinality = hlls.remove(0).estimate();
@@ -208,7 +225,7 @@ pub fn profile_columns(
         let string = str_accs[i].take().map(|acc| acc.finish());
         let temporal = temporal_accs[i].take().map(|acc| acc.finish());
         let boolean = bool_accs[i].take().map(|acc| acc.finish());
-        ColumnProfileResult { column_name: name, cardinality, frequency, numeric, histogram, string, temporal, boolean }
+        ColumnProfileResult { column_name: name, cardinality, frequency, numeric, histogram, string, temporal, boolean, truncated: timed_out }
     }).collect();
     Ok(results)
 }

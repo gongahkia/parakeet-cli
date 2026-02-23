@@ -12,7 +12,7 @@ pub use parallel_reader::{DatasetProfile, FileProfile, read_metadata_parallel};
 pub use schema::{ColumnSchema, extract_schema};
 pub use schema_diff::{SchemaInconsistency, InconsistencyKind, check_schema_consistency};
 pub use stats::{ColumnStats, AggregatedColumnStats, RowGroupProfile, UniformityReport, EncodingAnalysis, CompressionAnalysis, read_column_stats, aggregate_column_stats, profile_row_groups, analyze_uniformity, analyze_encodings, analyze_compression};
-pub use profile::{ColumnProfileResult, CardinalityEstimate, FrequencyResult, NumericProfile, HistogramBin, StringProfile, TemporalProfile, BooleanProfile, profile_columns, build_histogram};
+pub use profile::{ColumnProfileResult, CardinalityEstimate, FrequencyResult, NumericProfile, HistogramBin, StringProfile, TemporalProfile, BooleanProfile, profile_columns, profile_columns_with_timeout, build_histogram};
 pub mod quality;
 pub mod s3_reader;
 pub mod gcs_reader;

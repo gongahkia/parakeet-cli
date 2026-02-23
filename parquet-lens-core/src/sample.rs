@@ -190,7 +190,7 @@ fn profile_columns_sampled(path: &Path, rg_indices: &[usize], histogram_bins: us
         let string = str_accs[i].take().map(|acc| acc.finish());
         let temporal = temporal_accs[i].take().map(|acc| acc.finish());
         let boolean = bool_accs[i].take().map(|acc| acc.finish());
-        CPR { column_name: name, cardinality, frequency, numeric, histogram, string, temporal, boolean }
+        CPR { column_name: name, cardinality, frequency, numeric, histogram, string, temporal, boolean, truncated: false }
     }).collect();
     Ok(results)
 }

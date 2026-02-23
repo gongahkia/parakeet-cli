@@ -7,7 +7,7 @@ pub mod string_profiler;
 pub mod temporal;
 pub mod boolean;
 
-pub use full_scan::{ColumnProfileResult, profile_columns};
+pub use full_scan::{ColumnProfileResult, profile_columns, profile_columns_with_timeout};
 pub use cardinality::CardinalityEstimate;
 pub use frequency::FrequencyResult;
 pub use numeric::NumericProfile;
