@@ -15,6 +15,7 @@ pub struct TimeSeriesProfile {
     pub max_gap_ms: Option<i64>,
     pub is_monotonic: bool,
     pub missing_interval_hint: Option<String>,
+    pub has_data: bool, // false when all values are null (no min/max available)
 }
 
 pub fn profile_timeseries(path: &Path, timestamp_columns: &[String]) -> Result<Vec<TimeSeriesProfile>> {
@@ -55,7 +56,7 @@ pub fn profile_timeseries(path: &Path, timestamp_columns: &[String]) -> Result<V
                 column_name: col_name.clone(),
                 min_timestamp: None, max_timestamp: None,
                 total_duration_ms: None, mean_gap_ms: None, max_gap_ms: None,
-                is_monotonic: true, missing_interval_hint: None,
+                is_monotonic: true, missing_interval_hint: None, has_data: false,
             });
             continue;
         }
@@ -88,6 +89,7 @@ pub fn profile_timeseries(path: &Path, timestamp_columns: &[String]) -> Result<V
             max_gap_ms,
             is_monotonic,
             missing_interval_hint,
+            has_data: true,
         });
     }
     Ok(profiles)
