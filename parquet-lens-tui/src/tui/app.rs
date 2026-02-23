@@ -69,6 +69,7 @@ pub struct App {
     pub null_patterns: Vec<NullPatternGroup>,
     pub baseline_regressions: Vec<BaselineRegression>,
     pub has_baseline: bool,
+    pub baseline_captured_at: Option<u64>, // unix secs
     pub duplicate_report: Option<DuplicateReport>,
     pub theme: Theme,
 }
@@ -105,6 +106,7 @@ impl App {
             null_patterns: Vec::new(),
             baseline_regressions: Vec::new(),
             has_baseline: false,
+            baseline_captured_at: None,
             duplicate_report: None,
         }
     }

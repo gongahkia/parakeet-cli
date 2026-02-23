@@ -184,6 +184,7 @@ fn run_tui(input_path: String, config: Config, sample_pct: Option<f64>, no_sampl
     {
         let schema = app.columns().to_vec();
         let (base, regressions) = load_baseline_regressions(&paths[0].path, &app.agg_stats, &app.quality_scores, &schema);
+        app.baseline_captured_at = base.as_ref().map(|b| b.captured_at);
         app.has_baseline = base.is_some();
         app.baseline_regressions = regressions;
         if save_baseline {
