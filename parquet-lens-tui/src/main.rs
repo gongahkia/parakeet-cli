@@ -352,9 +352,19 @@ fn run_export(input_path: String, format: String, columns: Option<Vec<String>>, 
     if let Some(parent) = out_path.parent() {
         if !parent.as_os_str().is_empty() { std::fs::create_dir_all(parent)?; }
     }
+    let null_patterns = analyze_null_patterns(&agg_stats);
+    let engine_info = dataset.files.first()
+        .and_then(|f| f.created_by.as_deref())
+        .map(identify_engine);
+    let schema = dataset.combined_schema.iter().map(|c| parquet_lens_core::ColumnSchema {
+        name: c.name.clone(), physical_type: c.physical_type.clone(),
+        logical_type: c.logical_type.clone(), repetition: c.repetition.clone(),
+        max_def_level: c.max_def_level, max_rep_level: c.max_rep_level,
+    }).collect::<Vec<_>>();
+    let (_, baseline_regressions) = load_baseline_regressions(&paths[0].path, &agg_stats, &quality_scores, &schema);
     match format.as_str() {
         "json" => {
-            export_json(&out_path, &dataset, &agg_stats, &row_groups, &quality_scores).map_err(|e| anyhow::anyhow!("{e}"))?;
+            export_json(&out_path, &dataset, &agg_stats, &row_groups, &quality_scores, &null_patterns, engine_info.as_ref(), &baseline_regressions).map_err(|e| anyhow::anyhow!("{e}"))?;
             println!("Exported to {}", out_path.display());
         }
         "csv" => {

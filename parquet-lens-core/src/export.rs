@@ -5,6 +5,9 @@ use parquet_lens_common::Result;
 use crate::parallel_reader::DatasetProfile;
 use crate::stats::{AggregatedColumnStats, RowGroupProfile};
 use crate::quality::{QualityScore, DatasetQuality};
+use crate::null_patterns::NullPatternGroup;
+use crate::engine::EngineInfo;
+use crate::baseline::BaselineRegression;
 
 // --- Task 62: headless summary output ---
 
@@ -30,13 +33,22 @@ pub fn export_json(
     agg_stats: &[AggregatedColumnStats],
     row_groups: &[RowGroupProfile],
     quality_scores: &[QualityScore],
+    null_patterns: &[NullPatternGroup],
+    engine_info: Option<&EngineInfo>,
+    baseline_regressions: &[BaselineRegression],
 ) -> Result<()> {
-    let doc = serde_json::json!({
+    let mut doc = serde_json::json!({
         "dataset": dataset,
         "column_stats": agg_stats,
         "row_groups": row_groups,
         "quality_scores": quality_scores,
+        "null_patterns": null_patterns,
+        "baseline_regressions": baseline_regressions,
     });
+    if let Some(ei) = engine_info {
+        doc["engine_info"] = serde_json::to_value(ei)
+            .unwrap_or(serde_json::Value::Null);
+    }
     let mut file = std::fs::File::create(output_path)?;
     serde_json::to_writer_pretty(&mut file, &doc)
         .map_err(|e| parquet_lens_common::ParquetLensError::Other(e.to_string()))?;
