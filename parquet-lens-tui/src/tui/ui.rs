@@ -559,6 +559,7 @@ fn render_help(frame: &mut Frame, app: &App, area: Rect) {
         ("b",        "Toggle bookmark on column"),
         ("B",        "Show bookmarked columns only"),
         ("Esc",      "Back to file overview"),
+        ("I",        "Toggle null-hotspot filter (>5% null rate)"),
     ];
     let popup = centered_rect(60, 85, area);
     frame.render_widget(ratatui::widgets::Clear, popup);

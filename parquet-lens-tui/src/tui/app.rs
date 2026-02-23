@@ -59,6 +59,7 @@ pub struct App {
     pub sidebar_sort_asc: bool,
     pub bookmarks: Vec<String>,
     pub show_bookmarks_only: bool,
+    pub show_null_hotspot_only: bool, // 'I' keybind: filter columns with null_rate > 5%
     pub filter_input: String,
     pub filter_active: bool,
     pub filter_result: Option<FilterResult>,
@@ -99,7 +100,7 @@ impl App {
             comparison: None, compare_sidebar_col: 0,
             sidebar_search: String::new(), sidebar_searching: false,
             sidebar_sort: SidebarSort::Name, sidebar_sort_asc: true,
-            bookmarks: Vec::new(), show_bookmarks_only: false,
+            bookmarks: Vec::new(), show_bookmarks_only: false, show_null_hotspot_only: false,
             filter_input: String::new(), filter_active: false, filter_result: None,
             sample_note: None,
             repair_suggestions: Vec::new(),
@@ -141,7 +142,8 @@ impl App {
             let col = &cols[i];
             let search_match = self.sidebar_search.is_empty() || col.name.to_lowercase().contains(&self.sidebar_search.to_lowercase());
             let bookmark_match = !self.show_bookmarks_only || self.bookmarks.contains(&col.name);
-            search_match && bookmark_match
+            let hotspot_match = !self.show_null_hotspot_only || self.agg_stats.iter().find(|s| s.column_name == col.name).map(|s| s.null_percentage > 5.0).unwrap_or(false);
+            search_match && bookmark_match && hotspot_match
         }).collect();
         // precompute lookup maps to avoid O(n) scan per sort comparison
         let agg_map: std::collections::HashMap<&str, &AggregatedColumnStats> =

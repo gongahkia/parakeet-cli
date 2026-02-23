@@ -67,6 +67,7 @@ fn handle_sidebar(app: &mut App, key: KeyEvent) {
         }
         KeyCode::Char('b') => app.toggle_bookmark(),
         KeyCode::Char('B') => { app.show_bookmarks_only = !app.show_bookmarks_only; app.sidebar_selected = 0; }
+        KeyCode::Char('I') => { app.show_null_hotspot_only = !app.show_null_hotspot_only; app.sidebar_selected = 0; }
         KeyCode::Char('P') => { app.filter_active = true; app.view = View::FilterInput; app.focus = Focus::Overlay; }
         KeyCode::Char('V') => {
             match detect_duplicates(std::path::Path::new(&app.input_path)) {
