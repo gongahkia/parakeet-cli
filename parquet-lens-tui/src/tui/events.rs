@@ -1,7 +1,7 @@
 use std::path::Path;
 use crossterm::event::{KeyCode, KeyEvent};
 use crate::tui::app::{App, Focus, ProfilingMode, SidebarSort, View};
-use parquet_lens_core::{parse_predicate, filter_count, BaselineProfile, analyze_null_patterns};
+use parquet_lens_core::{parse_predicate, filter_count, BaselineProfile, analyze_null_patterns, detect_duplicates};
 
 pub fn handle_key(app: &mut App, key: KeyEvent) {
     match key.code {
@@ -63,6 +63,12 @@ fn handle_sidebar(app: &mut App, key: KeyEvent) {
         KeyCode::Char('b') => app.toggle_bookmark(),
         KeyCode::Char('B') => { app.show_bookmarks_only = !app.show_bookmarks_only; app.sidebar_selected = 0; }
         KeyCode::Char('P') => { app.filter_active = true; app.view = View::FilterInput; app.focus = Focus::Overlay; }
+        KeyCode::Char('V') => {
+            match detect_duplicates(std::path::Path::new(&app.input_path)) {
+                Ok(report) => { app.duplicate_report = Some(report); app.view = View::Duplicates; }
+                Err(e) => { app.status_msg = format!("dup detect error: {e}"); }
+            }
+        }
         KeyCode::Char('C') => {
             app.null_patterns = analyze_null_patterns(&app.agg_stats);
             app.view = View::NullPatterns;

@@ -88,7 +88,28 @@ fn render_main(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
         View::Nested => render_nested(frame, app, area, theme),
         View::NullPatterns => render_null_patterns(frame, app, area, theme),
         View::Baseline => render_baseline(frame, app, area, theme),
+        View::Duplicates => render_duplicates(frame, app, area, theme),
     }
+}
+
+fn render_duplicates(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
+    let Some(report) = &app.duplicate_report else {
+        frame.render_widget(Paragraph::new("No duplicate report. Press V to analyze.").block(Block::default().borders(Borders::ALL).title("Duplicate Detection (V)")), area);
+        return;
+    };
+    let color = if report.estimated_duplicate_pct > 5.0 { theme.error } else if report.estimated_duplicate_pct > 1.0 { theme.warning } else { theme.success };
+    let lines = vec![
+        Line::from(format!("Total rows:            {}", report.total_rows)),
+        Line::from(vec![
+            Span::raw("Estimated duplicates:  "),
+            Span::styled(format!("{}", report.estimated_duplicates), Style::default().fg(color)),
+        ]),
+        Line::from(vec![
+            Span::raw("Estimated dup %:       "),
+            Span::styled(format!("{:.2}%", report.estimated_duplicate_pct), Style::default().fg(color)),
+        ]),
+    ];
+    frame.render_widget(Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title("Duplicate Detection (V)")).wrap(Wrap { trim: false }), area);
 }
 
 fn render_repair(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
