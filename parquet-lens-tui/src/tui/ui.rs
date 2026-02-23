@@ -9,7 +9,7 @@ use crate::tui::app::{App, Focus, ProfilingMode, ProgressState, View};
 use crate::tui::theme::Theme;
 
 pub fn render(frame: &mut Frame, app: &App) {
-    let theme = Theme::from_name(&app.config.display.theme);
+    let theme = &app.theme;
     let area = frame.area();
     let chunks = Layout::default()
         .direction(Direction::Vertical)

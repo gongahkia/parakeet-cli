@@ -7,6 +7,7 @@ use parquet_lens_core::{
     EngineInfo, NullPatternGroup, BaselineRegression, DuplicateReport,
 };
 use parquet_lens_common::Config;
+use crate::tui::theme::Theme;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SidebarSort { Name, NullRate, Cardinality, Size, Quality }
@@ -69,6 +70,7 @@ pub struct App {
     pub baseline_regressions: Vec<BaselineRegression>,
     pub has_baseline: bool,
     pub duplicate_report: Option<DuplicateReport>,
+    pub theme: Theme,
 }
 
 impl App {
@@ -87,7 +89,9 @@ impl App {
             progress_rx: None,
             pending_full_scan: false,
             status_msg: String::from("Loading..."),
-            should_quit: false, config,
+            should_quit: false,
+            theme: Theme::from_name(&config.display.theme),
+            config,
             comparison: None, compare_sidebar_col: 0,
             sidebar_search: String::new(), sidebar_searching: false,
             sidebar_sort: SidebarSort::Name, sidebar_sort_asc: true,
