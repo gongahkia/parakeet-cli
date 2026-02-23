@@ -23,14 +23,30 @@ use parquet_lens_core::{
     compare_datasets, profile_columns, detect_duplicates,
     is_s3_uri, read_s3_parquet_metadata,
     is_gcs_uri, read_gcs_parquet_metadata,
-    ParquetFilePath,
+    ParquetFilePath, AggregatedColumnStats, EncodingAnalysis, QualityScore,
+    DatasetProfile, ParquetFileInfo,
 };
+use parquet::file::metadata::ParquetMetaData;
 
 /// block_in_place wrapper to call async resolve_paths from sync context
 fn rp(input: &str) -> anyhow::Result<Vec<ParquetFilePath>> {
     tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(resolve_paths(input)))
         .map_err(|e| anyhow::anyhow!("{e}"))
 }
+
+fn compute_quality_scores(agg_stats: &[AggregatedColumnStats], encodings: &[EncodingAnalysis], total_rows: i64) -> Vec<QualityScore> {
+    agg_stats.iter().map(|agg| {
+        let is_plain = encodings.iter().find(|e| e.column_name == agg.column_name).map(|e| e.is_plain_only).unwrap_or(false);
+        score_column(&agg.column_name, agg.null_percentage, agg.total_distinct_count_estimate, total_rows, is_plain)
+    }).collect()
+}
+
+fn load_file_stats(paths: &[ParquetFilePath]) -> anyhow::Result<(DatasetProfile, ParquetFileInfo, ParquetMetaData)> {
+    let dataset = read_metadata_parallel(paths).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let (file_info, meta) = open_parquet_file(&paths[0].path).map_err(|e| anyhow::anyhow!("{e}"))?;
+    Ok((dataset, file_info, meta))
+}
+
 use parquet_lens_common::Config;
 
 #[derive(Parser)]
@@ -112,10 +128,7 @@ fn run_tui(input_path: String, config: Config, sample_pct: Option<f64>) -> anyho
     let agg_stats = aggregate_column_stats(&col_stats, total_rows);
     let encoding_analysis = analyze_encodings(&meta);
     let compression_analysis = analyze_compression(&meta);
-    let quality_scores: Vec<_> = agg_stats.iter().map(|agg| {
-        let is_plain = encoding_analysis.iter().find(|e| e.column_name == agg.column_name).map(|e| e.is_plain_only).unwrap_or(false);
-        score_column(&agg.column_name, agg.null_percentage, agg.total_distinct_count_estimate, total_rows, is_plain)
-    }).collect();
+    let quality_scores = compute_quality_scores(&agg_stats, &encoding_analysis, total_rows);
 
     let mut app = App::new(input_path, config);
     if let Some(s) = Session::load() { app.restore_from_session(&s); }
@@ -255,10 +268,7 @@ fn run_compare(path1: String, path2: String, config: Config) -> anyhow::Result<(
     let col_stats2 = read_column_stats(&meta2);
     let agg_stats2 = aggregate_column_stats(&col_stats2, dataset2.total_rows);
     let comparison = compare_datasets(&dataset1, &dataset2, &agg_stats, &agg_stats2);
-    let quality_scores: Vec<_> = agg_stats.iter().map(|agg| {
-        let is_plain = encoding_analysis.iter().find(|e| e.column_name == agg.column_name).map(|e| e.is_plain_only).unwrap_or(false);
-        score_column(&agg.column_name, agg.null_percentage, agg.total_distinct_count_estimate, total_rows, is_plain)
-    }).collect();
+    let quality_scores = compute_quality_scores(&agg_stats, &encoding_analysis, total_rows);
     let mut app = App::new(path1, config);
     app.dataset = Some(dataset1);
     app.file_info = Some(file_info);
@@ -292,16 +302,12 @@ fn run_compare(path1: String, path2: String, config: Config) -> anyhow::Result<(
 fn run_summary(input_path: String) -> anyhow::Result<()> {
     let paths = rp(&input_path)?;
     if paths.is_empty() { anyhow::bail!("No Parquet files found: {input_path}"); }
-    let dataset = read_metadata_parallel(&paths).map_err(|e| anyhow::anyhow!("{e}"))?;
-    let (_, meta) = open_parquet_file(&paths[0].path).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let (dataset, _, meta) = load_file_stats(&paths)?;
     let col_stats = read_column_stats(&meta);
     let total_rows = dataset.total_rows;
     let agg_stats = aggregate_column_stats(&col_stats, total_rows);
     let encodings = analyze_encodings(&meta);
-    let quality_scores: Vec<_> = agg_stats.iter().map(|agg| {
-        let is_plain = encodings.iter().find(|e| e.column_name == agg.column_name).map(|e| e.is_plain_only).unwrap_or(false);
-        score_column(&agg.column_name, agg.null_percentage, agg.total_distinct_count_estimate, total_rows, is_plain)
-    }).collect();
+    let quality_scores = compute_quality_scores(&agg_stats, &encodings, total_rows);
     let total_cells = total_rows * dataset.combined_schema.len() as i64;
     let total_nulls: u64 = agg_stats.iter().map(|s| s.total_null_count).sum();
     let quality = summarize_quality(quality_scores, total_cells, total_nulls, true);
@@ -312,16 +318,12 @@ fn run_summary(input_path: String) -> anyhow::Result<()> {
 fn run_export(input_path: String, format: String, columns: Option<Vec<String>>, output: Option<String>, config: Config) -> anyhow::Result<()> {
     let paths = rp(&input_path)?;
     if paths.is_empty() { anyhow::bail!("No Parquet files found: {input_path}"); }
-    let dataset = read_metadata_parallel(&paths).map_err(|e| anyhow::anyhow!("{e}"))?;
-    let (_, meta) = open_parquet_file(&paths[0].path).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let (dataset, _, meta) = load_file_stats(&paths)?;
     let col_stats = read_column_stats(&meta);
     let row_groups = profile_row_groups(&meta);
     let mut agg_stats = aggregate_column_stats(&col_stats, dataset.total_rows);
     let encodings = analyze_encodings(&meta);
-    let mut quality_scores: Vec<_> = agg_stats.iter().map(|agg| {
-        let is_plain = encodings.iter().find(|e| e.column_name == agg.column_name).map(|e| e.is_plain_only).unwrap_or(false);
-        score_column(&agg.column_name, agg.null_percentage, agg.total_distinct_count_estimate, dataset.total_rows, is_plain)
-    }).collect();
+    let mut quality_scores = compute_quality_scores(&agg_stats, &encodings, dataset.total_rows);
     // column filtering
     if let Some(ref cols) = columns {
         let col_set: std::collections::HashSet<&str> = cols.iter().map(|s| s.as_str()).collect();
