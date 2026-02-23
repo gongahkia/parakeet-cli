@@ -1,7 +1,7 @@
 use std::path::Path;
 use crossterm::event::{KeyCode, KeyEvent};
 use crate::tui::app::{App, Focus, ProfilingMode, SidebarSort, View};
-use parquet_lens_core::{parse_predicate, filter_count};
+use parquet_lens_core::{parse_predicate, filter_count, BaselineProfile, analyze_null_patterns};
 
 pub fn handle_key(app: &mut App, key: KeyEvent) {
     match key.code {
@@ -63,6 +63,20 @@ fn handle_sidebar(app: &mut App, key: KeyEvent) {
         KeyCode::Char('b') => app.toggle_bookmark(),
         KeyCode::Char('B') => { app.show_bookmarks_only = !app.show_bookmarks_only; app.sidebar_selected = 0; }
         KeyCode::Char('P') => { app.filter_active = true; app.view = View::FilterInput; app.focus = Focus::Overlay; }
+        KeyCode::Char('C') => {
+            app.null_patterns = analyze_null_patterns(&app.agg_stats);
+            app.view = View::NullPatterns;
+        }
+        KeyCode::Char('A') => { app.view = View::Baseline; }
+        KeyCode::Char('G') => {
+            // save current profile as baseline
+            let schema = app.columns().to_vec();
+            let base = BaselineProfile::new(&app.input_path, schema, app.agg_stats.clone(), app.quality_scores.clone());
+            match base.save() {
+                Ok(_) => { app.status_msg = "baseline saved".into(); app.has_baseline = true; }
+                Err(e) => { app.status_msg = format!("save baseline failed: {e}"); }
+            }
+        }
         KeyCode::Esc => { app.view = View::FileOverview; app.sidebar_search.clear(); app.sidebar_searching = false; }
         _ => {}
     }

@@ -2629,6 +2629,7 @@ dependencies = [
  "aws-sdk-s3",
  "bloomfilter",
  "bytes",
+ "dirs",
  "glob",
  "hyperloglog",
  "memmap2",

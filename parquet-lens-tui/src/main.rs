@@ -19,6 +19,7 @@ use parquet_lens_core::{
     summarize_quality, print_summary, export_json, export_csv,
     sample_row_groups, SampleConfig,
     detect_repair_suggestions, profile_timeseries, profile_nested_columns,
+    identify_engine, load_baseline_regressions,
 };
 use parquet_lens_common::Config;
 
@@ -97,6 +98,19 @@ fn run_tui(input_path: String, config: Config, sample_pct: Option<f64>) -> anyho
     // nested column profiling
     if let Ok(np) = profile_nested_columns(&paths[0].path) {
         app.nested_profiles = np;
+    }
+
+    // engine identification from created_by
+    if let Some(created_by) = app.file_info.as_ref().and_then(|fi| fi.created_by.as_deref()) {
+        app.engine_info = Some(identify_engine(created_by));
+    }
+
+    // baseline diff
+    {
+        let schema = app.columns().to_vec();
+        let (base, regressions) = load_baseline_regressions(&paths[0].path, &app.agg_stats, &app.quality_scores, &schema);
+        app.has_baseline = base.is_some();
+        app.baseline_regressions = regressions;
     }
 
     if let Some(pct) = sample_pct {

@@ -1,3 +1,0 @@
-(C) Implement diff against baseline: save a profile as baseline JSON, on next run compare current profile against baseline, flag regressions (quality score drops, new nulls, schema changes) +compare
-(C) Add Parquet file creation metadata display: parse `created_by` field to identify writing engine (Spark, PyArrow, DuckDB, Impala), show engine-specific optimization hints +stats
-(C) Implement cross-column null pattern analysis: detect columns that are always null together (null correlation), suggest they may be from same optional source/join — display as grouped null pattern in quality view +quality

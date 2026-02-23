@@ -86,6 +86,8 @@ fn render_main(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
         View::Repair => render_repair(frame, app, area, theme),
         View::TimeSeries => render_timeseries(frame, app, area, theme),
         View::Nested => render_nested(frame, app, area, theme),
+        View::NullPatterns => render_null_patterns(frame, app, area, theme),
+        View::Baseline => render_baseline(frame, app, area, theme),
     }
 }
 
@@ -160,6 +162,47 @@ fn render_nested(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
         Constraint::Length(5), Constraint::Length(5), Constraint::Length(7),
     ]).header(header).block(Block::default().borders(Borders::ALL).title("Nested Type Profile (X)"));
     frame.render_widget(table, area);
+}
+
+fn render_null_patterns(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
+    if app.null_patterns.is_empty() {
+        frame.render_widget(Paragraph::new("No null patterns detected. Press C to analyze.").block(Block::default().borders(Borders::ALL).title("Cross-Column Null Patterns (C)")), area);
+        return;
+    }
+    let header = Row::new(["Pattern","Null%","Columns"].map(|h| Cell::from(h).style(Style::default().add_modifier(Modifier::BOLD))));
+    let rows: Vec<Row> = app.null_patterns.iter().map(|p| {
+        let color = match p.pattern_type.as_str() { "always_null" => theme.error, "correlated_nulls" => theme.warning, _ => theme.success };
+        Row::new([
+            Cell::from(p.pattern_type.clone()).style(Style::default().fg(color)),
+            Cell::from(format!("{:.1}%", p.null_percentage)),
+            Cell::from(p.columns.join(", ")),
+        ])
+    }).collect();
+    let table = Table::new(rows, [Constraint::Length(18), Constraint::Length(8), Constraint::Min(40)])
+        .header(header).block(Block::default().borders(Borders::ALL).title("Cross-Column Null Patterns (C)"));
+    frame.render_widget(table, area);
+}
+
+fn render_baseline(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
+    let mut lines = Vec::new();
+    if !app.has_baseline && app.baseline_regressions.is_empty() {
+        lines.push(Line::from("No baseline loaded. Press G to save current profile as baseline."));
+        frame.render_widget(Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title("Baseline Diff (A)")).wrap(Wrap { trim: false }), area);
+        return;
+    }
+    if app.baseline_regressions.is_empty() {
+        lines.push(Line::from(Span::styled("No regressions detected — profile matches baseline.", Style::default().fg(theme.success))));
+    } else {
+        lines.push(Line::from(Span::styled(format!("{} regression(s) found:", app.baseline_regressions.len()), Style::default().fg(theme.error).add_modifier(Modifier::BOLD))));
+        lines.push(Line::from(""));
+        for r in &app.baseline_regressions {
+            let color = match r.kind.as_str() { "quality_drop" => theme.error, "null_increase" => theme.warning, _ => theme.fg };
+            lines.push(Line::from(Span::styled(format!("[{}] {} — {}", r.kind, r.column, r.detail), Style::default().fg(color))));
+        }
+    }
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled("G: save current as baseline", Style::default().fg(theme.fg))));
+    frame.render_widget(Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title("Baseline Diff (A)")).wrap(Wrap { trim: false }), area);
 }
 
 fn render_col_size_breakdown(frame: &mut Frame, app: &App, area: Rect) {
@@ -246,6 +289,12 @@ fn render_file_overview(frame: &mut Frame, app: &App, area: Rect) {
         lines.push(Line::from(format!("Row groups:{}", fi.row_group_count)));
         lines.push(Line::from(format!("Rows:      {}", fi.row_count)));
         lines.push(Line::from(format!("Size:      {}", fmt_bytes(fi.file_size))));
+        if let Some(eng) = &app.engine_info {
+            lines.push(Line::from(format!("Engine:    {} {}", eng.engine_name, eng.version_hint.as_deref().unwrap_or(""))));
+            for hint in &eng.hints {
+                lines.push(Line::from(format!("  hint: {hint}")));
+            }
+        }
         if !fi.key_value_metadata.is_empty() {
             lines.push(Line::from(""));
             lines.push(Line::from(Span::styled("Key-value metadata:", Style::default().add_modifier(Modifier::BOLD))));

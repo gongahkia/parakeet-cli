@@ -4,6 +4,7 @@ use parquet_lens_core::{
     AggregatedColumnStats, EncodingAnalysis, CompressionAnalysis,
     QualityScore, ColumnProfileResult, DatasetComparison, FilterResult,
     RepairSuggestion, TimeSeriesProfile, NestedColumnProfile,
+    EngineInfo, NullPatternGroup, BaselineRegression,
 };
 use parquet_lens_common::Config;
 
@@ -11,7 +12,7 @@ use parquet_lens_common::Config;
 pub enum SidebarSort { Name, NullRate, Cardinality, Size, Quality }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum View { FileOverview, Schema, ColumnDetail(usize), RowGroups, NullHeatmap, DataPreview, Help, ConfirmFullScan, Compare, ColumnSizeBreakdown, FileList, FilterInput, Repair, TimeSeries, Nested }
+pub enum View { FileOverview, Schema, ColumnDetail(usize), RowGroups, NullHeatmap, DataPreview, Help, ConfirmFullScan, Compare, ColumnSizeBreakdown, FileList, FilterInput, Repair, TimeSeries, Nested, NullPatterns, Baseline }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ProfilingMode { Metadata, FullScan }
@@ -61,6 +62,10 @@ pub struct App {
     pub repair_suggestions: Vec<RepairSuggestion>,
     pub timeseries_profiles: Vec<TimeSeriesProfile>,
     pub nested_profiles: Vec<NestedColumnProfile>,
+    pub engine_info: Option<EngineInfo>,
+    pub null_patterns: Vec<NullPatternGroup>,
+    pub baseline_regressions: Vec<BaselineRegression>,
+    pub has_baseline: bool,
 }
 
 impl App {
@@ -87,6 +92,10 @@ impl App {
             repair_suggestions: Vec::new(),
             timeseries_profiles: Vec::new(),
             nested_profiles: Vec::new(),
+            engine_info: None,
+            null_patterns: Vec::new(),
+            baseline_regressions: Vec::new(),
+            has_baseline: false,
         }
     }
     pub fn columns(&self) -> &[ColumnSchema] {
@@ -173,6 +182,8 @@ impl App {
             View::Repair => "repair",
             View::TimeSeries => "timeseries",
             View::Nested => "nested",
+            View::NullPatterns => "null_patterns",
+            View::Baseline => "baseline",
             _ => "overview",
         };
         let mode = match self.profiling_mode { ProfilingMode::Metadata => "metadata", ProfilingMode::FullScan => "full_scan" };
@@ -194,6 +205,8 @@ impl App {
             "repair" => View::Repair,
             "timeseries" => View::TimeSeries,
             "nested" => View::Nested,
+            "null_patterns" => View::NullPatterns,
+            "baseline" => View::Baseline,
             _ => View::FileOverview,
         };
         self.profiling_mode = if s.profiling_mode == "full_scan" { ProfilingMode::FullScan } else { ProfilingMode::Metadata };
