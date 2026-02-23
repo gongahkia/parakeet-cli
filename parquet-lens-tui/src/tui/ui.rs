@@ -25,6 +25,7 @@ pub fn render(frame: &mut Frame, app: &App) {
     render_bottombar(frame, app, chunks[2], &theme);
     if app.view == View::Help { render_help(frame, area); }
     if app.view == View::ConfirmFullScan { render_confirm(frame, area); }
+    if app.filter_active || app.view == View::FilterInput { render_filter_overlay(frame, app, area); }
     if let ProgressState::Running { rows_processed, total_rows } = &app.progress {
         render_progress(frame, area, *rows_processed, *total_rows, &theme);
     }
@@ -81,6 +82,7 @@ fn render_main(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
         View::Compare => render_compare(frame, app, area, theme),
         View::ColumnSizeBreakdown => render_col_size_breakdown(frame, app, area),
         View::FileList => render_file_list(frame, app, area),
+        View::FilterInput => render_file_overview(frame, app, area), // filter overlay renders on top
     }
 }
 
@@ -315,6 +317,26 @@ fn render_data_preview(frame: &mut Frame, app: &App, area: Rect) {
     frame.render_widget(Table::new(rows, widths).header(header).block(Block::default().borders(Borders::ALL).title("Data Preview (D) — arrows scroll")), area);
 }
 
+fn render_filter_overlay(frame: &mut Frame, app: &App, area: Rect) {
+    let popup = centered_rect(60, 30, area);
+    frame.render_widget(ratatui::widgets::Clear, popup);
+    let result_line = if let Some(r) = &app.filter_result {
+        format!("matched: {}  scanned: {}  skipped rgs: {}/{}",
+            r.matched_rows, r.scanned_rows, r.skipped_rgs, r.total_rgs)
+    } else {
+        String::from("Enter expression, press Enter to run, Esc to cancel")
+    };
+    let content = format!("> {}_
+
+{}", app.filter_input, result_line);
+    frame.render_widget(
+        Paragraph::new(content)
+            .block(Block::default().borders(Borders::ALL).title("Filter (P) — WHERE expression"))
+            .wrap(Wrap { trim: false }),
+        popup,
+    );
+}
+
 fn render_help(frame: &mut Frame, area: Rect) {
     let text = vec![
         Line::from(Span::styled("Keybindings", Style::default().add_modifier(Modifier::BOLD))),
@@ -331,6 +353,7 @@ fn render_help(frame: &mut Frame, area: Rect) {
         Line::from("  </> Sort row groups"),
         Line::from("  arrows   Scroll data preview"),
         Line::from("  Esc      Back to overview"),
+        Line::from("  P        Predicate filter mode"),
     ];
     let popup = centered_rect(50, 70, area);
     frame.render_widget(ratatui::widgets::Clear, popup);
@@ -351,7 +374,13 @@ fn render_progress(frame: &mut Frame, area: Rect, rp: u64, tr: u64, theme: &Them
 }
 
 fn render_bottombar(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
-    frame.render_widget(Paragraph::new(format!(" {} | q:quit ?:help Tab:focus S R N D m", app.status_msg)).style(Style::default().bg(theme.bg).fg(theme.fg)), area);
+    let bar_text = if let Some(r) = &app.filter_result {
+        format!(" {} | filter: {} matched / {} scanned ({} rgs skipped) | q:quit ?:help Tab:focus S R N D m P",
+            app.status_msg, r.matched_rows, r.scanned_rows, r.skipped_rgs)
+    } else {
+        format!(" {} | q:quit ?:help Tab:focus S R N D m P", app.status_msg)
+    };
+    frame.render_widget(Paragraph::new(bar_text).style(Style::default().bg(theme.bg).fg(theme.fg)), area);
 }
 
 fn centered_rect(px: u16, py: u16, r: Rect) -> Rect {

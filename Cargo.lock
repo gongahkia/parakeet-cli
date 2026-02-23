@@ -2653,6 +2653,7 @@ dependencies = [
  "arrow",
  "clap",
  "crossterm",
+ "dirs",
  "futures",
  "parquet",
  "parquet-lens-common",

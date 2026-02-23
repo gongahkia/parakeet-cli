@@ -1,6 +1,3 @@
-(C) Implement predicate filter mode: keybinding `P` opens filter builder, accept SQL-like WHERE expression (e.g., `age > 30 AND status = 'active'`), re-profile only matching rows using arrow compute kernels +filter
-(C) Implement predicate pushdown using Parquet row group statistics: skip row groups where min/max stats prove no rows can match predicate, report skipped vs scanned row groups +filter
-(C) Implement filter expression parser: parse simple predicates (column op value) with AND/OR/NOT, operators: =, !=, <, >, <=, >=, IS NULL, IS NOT NULL, IN (...), LIKE — using pest or nom parser combinator +filter
 (C) Implement sampling mode for full-scan: `--sample <percentage>` flag reads random N% of row groups instead of all, extrapolate statistics with confidence intervals — fast approximate profiling for very large files +profile
 (C) Implement Parquet file repair suggestions: detect common issues (too many small row groups → suggest compaction, dictionary pages >1MB → suggest disabling dictionary, excessive null columns → suggest dropping), output as actionable recommendations list +quality
 (C) Implement time-series aware profiling: detect timestamp columns, compute time gaps, identify missing intervals, check monotonicity, report temporal coverage — useful for event data +profile

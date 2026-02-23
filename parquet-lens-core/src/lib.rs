@@ -27,3 +27,5 @@ pub use compare::{ColumnSchemaDiff, DiffStatus, ColumnStatsDiff, DatasetComparis
 pub use stats_ext::{PartitionInfo, CorrelationMatrix, StringLengthHist, SortedOrderInfo, PageIndexInfo, BloomFilterInfo, analyze_partitions, compute_correlation, string_length_histogram, detect_sort_order, analyze_page_index, detect_bloom_filters};
 pub use recommendations::{EncodingRecommendation, CompressionRecommendation, recommend_encodings, recommend_compression};
 pub use export::{print_summary, export_json, export_csv};
+pub mod filter;
+pub use filter::{Predicate, FilterResult, parse_predicate, filter_count};

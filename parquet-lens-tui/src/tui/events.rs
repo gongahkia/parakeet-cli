@@ -1,5 +1,7 @@
+use std::path::Path;
 use crossterm::event::{KeyCode, KeyEvent};
 use crate::tui::app::{App, Focus, ProfilingMode, SidebarSort, View};
+use parquet_lens_core::{parse_predicate, filter_count};
 
 pub fn handle_key(app: &mut App, key: KeyEvent) {
     match key.code {
@@ -58,6 +60,7 @@ fn handle_sidebar(app: &mut App, key: KeyEvent) {
         }
         KeyCode::Char('b') => app.toggle_bookmark(),
         KeyCode::Char('B') => { app.show_bookmarks_only = !app.show_bookmarks_only; app.sidebar_selected = 0; }
+        KeyCode::Char('P') => { app.filter_active = true; app.view = View::FilterInput; app.focus = Focus::Overlay; }
         KeyCode::Esc => { app.view = View::FileOverview; app.sidebar_search.clear(); app.sidebar_searching = false; }
         _ => {}
     }
@@ -81,6 +84,41 @@ fn handle_main(app: &mut App, key: KeyEvent) {
 }
 
 fn handle_overlay(app: &mut App, key: KeyEvent) {
+    if app.filter_active || app.view == View::FilterInput {
+        match key.code {
+            KeyCode::Esc => {
+                app.filter_active = false;
+                app.view = View::FileOverview;
+                app.focus = Focus::Sidebar;
+            }
+            KeyCode::Backspace => { app.filter_input.pop(); }
+            KeyCode::Enter => {
+                let expr = app.filter_input.trim().to_string();
+                if !expr.is_empty() {
+                    match parse_predicate(&expr) {
+                        Err(e) => { app.status_msg = format!("parse error: {e}"); }
+                        Ok(pred) => {
+                            let path = Path::new(&app.input_path);
+                            match filter_count(path, &pred) {
+                                Ok(r) => {
+                                    app.status_msg = format!("filter: {} matched / {} scanned ({} rgs skipped)",
+                                        r.matched_rows, r.scanned_rows, r.skipped_rgs);
+                                    app.filter_result = Some(r);
+                                }
+                                Err(e) => { app.status_msg = format!("filter error: {e}"); }
+                            }
+                        }
+                    }
+                }
+                app.filter_active = false;
+                app.view = View::FileOverview;
+                app.focus = Focus::Sidebar;
+            }
+            KeyCode::Char(c) => { app.filter_input.push(c); }
+            _ => {}
+        }
+        return;
+    }
     match key.code {
         KeyCode::Esc => { app.view = View::FileOverview; app.focus = Focus::Sidebar; }
         KeyCode::Enter => {

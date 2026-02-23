@@ -2,7 +2,7 @@ use crate::tui::session::Session;
 use parquet_lens_core::{
     DatasetProfile, ColumnSchema, ParquetFileInfo, RowGroupProfile,
     AggregatedColumnStats, EncodingAnalysis, CompressionAnalysis,
-    QualityScore, ColumnProfileResult, DatasetComparison,
+    QualityScore, ColumnProfileResult, DatasetComparison, FilterResult,
 };
 use parquet_lens_common::Config;
 
@@ -10,7 +10,7 @@ use parquet_lens_common::Config;
 pub enum SidebarSort { Name, NullRate, Cardinality, Size, Quality }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum View { FileOverview, Schema, ColumnDetail(usize), RowGroups, NullHeatmap, DataPreview, Help, ConfirmFullScan, Compare, ColumnSizeBreakdown, FileList }
+pub enum View { FileOverview, Schema, ColumnDetail(usize), RowGroups, NullHeatmap, DataPreview, Help, ConfirmFullScan, Compare, ColumnSizeBreakdown, FileList, FilterInput }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ProfilingMode { Metadata, FullScan }
@@ -53,6 +53,9 @@ pub struct App {
     pub sidebar_sort_asc: bool,
     pub bookmarks: Vec<String>,
     pub show_bookmarks_only: bool,
+    pub filter_input: String,
+    pub filter_active: bool,
+    pub filter_result: Option<FilterResult>,
 }
 
 impl App {
@@ -74,6 +77,7 @@ impl App {
             sidebar_search: String::new(), sidebar_searching: false,
             sidebar_sort: SidebarSort::Name, sidebar_sort_asc: true,
             bookmarks: Vec::new(), show_bookmarks_only: false,
+            filter_input: String::new(), filter_active: false, filter_result: None,
         }
     }
     pub fn columns(&self) -> &[ColumnSchema] {
@@ -157,6 +161,7 @@ impl App {
             View::Compare => "compare",
             View::ColumnSizeBreakdown => "col_size",
             View::FileList => "file_list",
+            View::FilterInput => "filter_input",
             _ => "overview",
         };
         let mode = match self.profiling_mode { ProfilingMode::Metadata => "metadata", ProfilingMode::FullScan => "full_scan" };
