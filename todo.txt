@@ -1,6 +1,3 @@
-(B) Export `analyze_null_patterns` result as part of `export_json` output in `parquet-lens-core/src/export.rs` by adding a `null_patterns` field to the JSON object when called from CLI +feature +export
-(B) Add `engine_info` to `export_json` output in `parquet-lens-core/src/export.rs` so exported profiles include write-engine identification +feature +export
-(B) Add `baseline_regressions` to `export_json` output in `parquet-lens-core/src/export.rs` when a baseline exists +feature +export
 (B) In `parquet-lens-core/src/filter.rs`, add bounds checking on `filter_count` for the case where the predicate references a column name that doesn't exist in the schema; return a clear error instead of silently returning 0 matched rows +stability
 (B) In `run_tui` in `parquet-lens-tui/src/main.rs`, handle the case where `profile_timeseries` is called but the parquet file has no timestamp/date columns by skipping the call entirely (currently only skipped when `ts_cols.is_empty()`, which is correct, but the error branch silently discards the error — log it to `app.status_msg` instead) +stability
 (B) In `parquet-lens-core/src/gcs_reader.rs`, handle HTTP 401/403 responses from GCS as typed `ParquetLensError::Auth` variant (add `Auth(String)` to `ParquetLensError` in `parquet-lens-common/src/lib.rs`) instead of opaque `Other` +stability +gcs
