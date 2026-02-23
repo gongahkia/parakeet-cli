@@ -2,7 +2,7 @@ use std::path::Path;
 use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
 use parquet_lens_common::{ParquetLensError, Result};
 use crate::stats::{AggregatedColumnStats, RowGroupProfile};
-use crate::profile::{ColumnProfileResult, profile_columns};
+use crate::profile::ColumnProfileResult;
 use crate::{read_column_stats, aggregate_column_stats, profile_row_groups};
 
 pub struct SampleConfig {
@@ -24,7 +24,7 @@ pub fn sample_row_groups(path: &Path, config: &SampleConfig, histogram_bins: usi
         .map_err(ParquetLensError::Parquet)?;
     let meta = builder.metadata().clone();
     let total = meta.num_row_groups();
-    if total == 0 { anyhow::bail!("no row groups in file"); }
+    if total == 0 { return Err(ParquetLensError::Io(std::io::Error::new(std::io::ErrorKind::InvalidData, "no row groups in file"))); }
     let n = ((config.percentage / 100.0) * total as f64).ceil() as usize;
     let n = n.clamp(1, total);
     // deterministic pseudo-random selection via multiplicative hash
@@ -78,7 +78,7 @@ pub fn sample_row_groups(path: &Path, config: &SampleConfig, histogram_bins: usi
 fn profile_columns_sampled(path: &Path, rg_indices: &[usize], histogram_bins: usize) -> Result<Vec<ColumnProfileResult>> {
     use arrow::array::*;
     use arrow::datatypes::{DataType, TimeUnit};
-    use crate::profile::{CardinalityEstimate, FrequencyResult, NumericProfile, StringProfile, TemporalProfile, BooleanProfile, build_histogram};
+    // accumulator types imported below
     use crate::profile::full_scan::ColumnProfileResult as CPR;
     // re-use profile_columns but with row group restriction
     // build reader filtered to selected row groups only
