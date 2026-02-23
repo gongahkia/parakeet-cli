@@ -44,6 +44,7 @@ pub struct App {
     pub preview_scroll_x: usize,
     pub preview_scroll_y: usize,
     pub progress: ProgressState,
+    pub progress_rx: Option<std::sync::mpsc::Receiver<u64>>, // async full-scan progress
     pub status_msg: String,
     pub should_quit: bool,
     pub config: Config,
@@ -81,6 +82,7 @@ impl App {
             sidebar_selected: 0, rg_sort_col: 0, rg_sort_asc: true,
             preview_scroll_x: 0, preview_scroll_y: 0,
             progress: ProgressState::Idle,
+            progress_rx: None,
             status_msg: String::from("Loading..."),
             should_quit: false, config,
             comparison: None, compare_sidebar_col: 0,
