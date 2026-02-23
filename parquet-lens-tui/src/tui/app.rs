@@ -45,6 +45,7 @@ pub struct App {
     pub preview_scroll_y: usize,
     pub progress: ProgressState,
     pub progress_rx: Option<std::sync::mpsc::Receiver<u64>>, // async full-scan progress
+    pub pending_full_scan: bool, // triggers spawn_blocking for full-scan
     pub status_msg: String,
     pub should_quit: bool,
     pub config: Config,
@@ -83,6 +84,7 @@ impl App {
             preview_scroll_x: 0, preview_scroll_y: 0,
             progress: ProgressState::Idle,
             progress_rx: None,
+            pending_full_scan: false,
             status_msg: String::from("Loading..."),
             should_quit: false, config,
             comparison: None, compare_sidebar_col: 0,
@@ -219,7 +221,7 @@ impl App {
             ProfilingMode::Metadata => {
                 let large = self.file_info.as_ref().map(|f| f.file_size > 1024*1024*1024).unwrap_or(false);
                 if large { self.view = View::ConfirmFullScan; self.focus = Focus::Overlay; }
-                else { self.profiling_mode = ProfilingMode::FullScan; }
+                else { self.profiling_mode = ProfilingMode::FullScan; self.pending_full_scan = true; }
             }
             ProfilingMode::FullScan => { self.profiling_mode = ProfilingMode::Metadata; }
         }

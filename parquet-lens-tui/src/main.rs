@@ -20,7 +20,7 @@ use parquet_lens_core::{
     sample_row_groups, SampleConfig,
     detect_repair_suggestions, profile_timeseries, profile_nested_columns,
     identify_engine, load_baseline_regressions,
-    compare_datasets,
+    compare_datasets, profile_columns,
 };
 use parquet_lens_common::Config;
 
@@ -141,14 +141,36 @@ fn run_tui(input_path: String, config: Config, sample_pct: Option<f64>) -> anyho
     let tick = Duration::from_millis(66); // 15Hz
     loop {
         terminal.draw(|f| render(f, &app))?;
+        // spawn full-scan when pending flag is set
+        if app.pending_full_scan {
+            app.pending_full_scan = false;
+            let total_rows = app.file_info.as_ref().map(|f| f.row_count as u64).unwrap_or(0);
+            app.progress = tui::app::ProgressState::Running { rows_processed: 0, total_rows };
+            let path = std::path::PathBuf::from(&app.input_path);
+            let bins = app.config.profiling.histogram_bins;
+            let (tx, rx) = std::sync::mpsc::channel::<u64>();
+            app.progress_rx = Some(rx);
+            tokio::task::spawn_blocking(move || {
+                let _ = profile_columns(&path, None, 65536, bins);
+                let _ = tx.send(total_rows); // signal completion
+            });
+        }
         // poll async full-scan progress channel
-        if let Some(rx) = &app.progress_rx {
+        let scan_done = if let Some(rx) = &app.progress_rx {
+            let mut done = false;
             while let Ok(rows_processed) = rx.try_recv() {
                 if let tui::app::ProgressState::Running { total_rows, .. } = app.progress {
-                    app.progress = tui::app::ProgressState::Running { rows_processed, total_rows };
+                    if rows_processed >= total_rows {
+                        app.progress = tui::app::ProgressState::Done;
+                        done = true;
+                    } else {
+                        app.progress = tui::app::ProgressState::Running { rows_processed, total_rows };
+                    }
                 }
             }
-        }
+            done
+        } else { false };
+        if scan_done { app.progress_rx = None; }
         if event::poll(tick)? {
             if let Event::Key(key) = event::read()? {
                 handle_key(&mut app, key);
