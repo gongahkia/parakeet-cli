@@ -23,7 +23,7 @@ use parquet_lens_core::{
     compare_datasets, profile_columns, detect_duplicates,
     is_s3_uri, read_s3_parquet_metadata,
     is_gcs_uri, read_gcs_parquet_metadata,
-    recommend_row_group_size,
+    recommend_row_group_size, analyze_partitions,
     ParquetFilePath, AggregatedColumnStats, EncodingAnalysis, QualityScore,
     DatasetProfile, ParquetFileInfo,
 };
@@ -204,6 +204,9 @@ fn run_tui(input_path: String, config: Config, sample_pct: Option<f64>, no_sampl
 
     // pre-compute null patterns
     app.null_patterns = analyze_null_patterns(&app.agg_stats);
+
+    // partition key analysis (hive-style key=value path segments)
+    app.partition_infos = analyze_partitions(&paths);
 
     if let Some(pct) = sample_pct {
         let cfg = SampleConfig { percentage: pct, no_extrapolation: no_sample_extrapolation };

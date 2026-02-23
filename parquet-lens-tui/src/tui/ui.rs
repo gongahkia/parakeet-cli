@@ -89,6 +89,7 @@ fn render_main(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
         View::NullPatterns => render_null_patterns(frame, app, area, theme),
         View::Baseline => render_baseline(frame, app, area, theme),
         View::Duplicates => render_duplicates(frame, app, area, theme),
+        View::Partitions => render_partitions(frame, app, area, theme),
     }
 }
 
@@ -110,6 +111,29 @@ fn render_duplicates(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
         ]),
     ];
     frame.render_widget(Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title("Duplicate Detection (V)")).wrap(Wrap { trim: false }), area);
+}
+
+fn render_partitions(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
+    if app.partition_infos.is_empty() {
+        frame.render_widget(Paragraph::new("No partition keys detected (expected hive-style key=value path segments).").block(Block::default().borders(Borders::ALL).title("Partitions (Q)")), area);
+        return;
+    }
+    let mut rows: Vec<Row> = Vec::new();
+    for pi in &app.partition_infos {
+        rows.push(Row::new([
+            Cell::from(pi.key.clone()).style(Style::default().add_modifier(Modifier::BOLD)),
+            Cell::from(pi.distinct_values.len().to_string()),
+            Cell::from(pi.distinct_values.join(", ")),
+            Cell::from(pi.partition_row_counts.values().sum::<i64>().to_string()),
+            Cell::from(if pi.skewed_partitions.is_empty() { "—".to_string() } else { pi.skewed_partitions.join(", ") })
+                .style(Style::default().fg(if pi.skewed_partitions.is_empty() { theme.success } else { theme.warning })),
+        ]));
+    }
+    let header = Row::new(["Key", "Values", "Value list", "Total rows", "Skewed"].map(|h| Cell::from(h).style(Style::default().add_modifier(Modifier::BOLD))));
+    let table = Table::new(rows, [Constraint::Length(18), Constraint::Length(8), Constraint::Min(20), Constraint::Length(12), Constraint::Min(15)])
+        .header(header)
+        .block(Block::default().borders(Borders::ALL).title("Partitions (Q)"));
+    frame.render_widget(table, area);
 }
 
 fn render_repair(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
@@ -559,7 +583,6 @@ fn render_help(frame: &mut Frame, app: &App, area: Rect) {
         ("b",        "Toggle bookmark on column"),
         ("B",        "Show bookmarked columns only"),
         ("Esc",      "Back to file overview"),
-        ("I",        "Toggle null-hotspot filter (>5% null rate)"),
     ];
     let popup = centered_rect(60, 85, area);
     frame.render_widget(ratatui::widgets::Clear, popup);

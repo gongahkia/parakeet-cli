@@ -5,7 +5,7 @@ use parquet_lens_core::{
     QualityScore, ColumnProfileResult, DatasetComparison, FilterResult,
     RepairSuggestion, TimeSeriesProfile, NestedColumnProfile,
     EngineInfo, NullPatternGroup, BaselineRegression, DuplicateReport,
-    RowGroupSizeRecommendation,
+    RowGroupSizeRecommendation, PartitionInfo,
 };
 use parquet_lens_common::Config;
 use crate::tui::theme::Theme;
@@ -14,7 +14,7 @@ use crate::tui::theme::Theme;
 pub enum SidebarSort { Name, NullRate, Cardinality, Size, Quality }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum View { FileOverview, Schema, ColumnDetail(usize), RowGroups, NullHeatmap, DataPreview, Help, ConfirmFullScan, Compare, ColumnSizeBreakdown, FileList, FilterInput, Repair, TimeSeries, Nested, NullPatterns, Baseline, Duplicates }
+pub enum View { FileOverview, Schema, ColumnDetail(usize), RowGroups, NullHeatmap, DataPreview, Help, ConfirmFullScan, Compare, ColumnSizeBreakdown, FileList, FilterInput, Repair, TimeSeries, Nested, NullPatterns, Baseline, Duplicates, Partitions }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ProfilingMode { Metadata, FullScan }
@@ -74,6 +74,7 @@ pub struct App {
     pub has_baseline: bool,
     pub baseline_captured_at: Option<u64>, // unix secs
     pub duplicate_report: Option<DuplicateReport>,
+    pub partition_infos: Vec<PartitionInfo>,
     pub theme: Theme,
     pub help_scroll: usize, // scroll offset for help keybind table
 }
@@ -113,6 +114,7 @@ impl App {
             has_baseline: false,
             baseline_captured_at: None,
             duplicate_report: None,
+            partition_infos: Vec::new(),
             help_scroll: 0,
         }
     }
@@ -209,6 +211,7 @@ impl App {
             View::NullPatterns => "null_patterns",
             View::Baseline => "baseline",
             View::Duplicates => "duplicates",
+            View::Partitions => "partitions",
             _ => "overview",
         };
         let mode = match self.profiling_mode { ProfilingMode::Metadata => "metadata", ProfilingMode::FullScan => "full_scan" };
@@ -243,6 +246,7 @@ impl App {
             "null_patterns" => View::NullPatterns,
             "baseline" => View::Baseline,
             "duplicates" => View::Duplicates,
+            "partitions" => View::Partitions,
             _ => View::FileOverview,
         };
         self.profiling_mode = if s.profiling_mode == "full_scan" { ProfilingMode::FullScan } else { ProfilingMode::Metadata };
