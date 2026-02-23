@@ -1,13 +1,3 @@
-(B) Add async FullScan re-profiling to TUI: spawn a `tokio::task::spawn_blocking` call to run `profile_columns` when user triggers `ProfilingMode::FullScan` transition, communicating progress via `std::sync::mpsc::channel` into `app.progress` +feature +fullscan
-(B) Add a `progress_rx: Option<std::sync::mpsc::Receiver<u64>>` field to `App` struct in `parquet-lens-tui/src/tui/app.rs` for async full-scan progress updates +feature +fullscan
-(B) In the TUI main loop in `parquet-lens-tui/src/main.rs`, poll `app.progress_rx` each tick and update `app.progress` state (rows_processed, total_rows) for rendering +feature +fullscan
-(B) Render `ProgressState::Running` in `parquet-lens-tui/src/tui/ui.rs` as a progress bar in the status bar area using ratatui `Gauge` widget showing `rows_processed / total_rows` +feature +fullscan
-(B) Add `duplicates` subcommand to `Commands` enum in `parquet-lens-tui/src/main.rs`: `Duplicates { path: String }` +feature +duplicates
-(B) Implement `run_duplicates(path: String) -> anyhow::Result<()>` in `parquet-lens-tui/src/main.rs` calling `detect_duplicates` and printing total_rows, estimated_duplicates, estimated_duplicate_pct as a formatted CLI table +feature +duplicates
-(B) Add `View::Duplicates` variant to the `View` enum in `parquet-lens-tui/src/tui/app.rs` +feature +duplicates
-(B) Add `duplicate_report: Option<DuplicateReport>` field to `App` struct in `parquet-lens-tui/src/tui/app.rs`; import `DuplicateReport` from `parquet_lens_core` +feature +duplicates
-(B) Bind key `'V'` in `handle_sidebar` in `parquet-lens-tui/src/tui/events.rs` to trigger `detect_duplicates` on `app.input_path`, store result in `app.duplicate_report`, and set `app.view = View::Duplicates` +feature +duplicates
-(B) Implement `View::Duplicates` render branch in `parquet-lens-tui/src/tui/ui.rs` showing total_rows, estimated_duplicates, estimated_duplicate_pct as a centered panel +feature +duplicates
 (B) Add S3 URI detection in `parquet-lens-core/src/scanner.rs` `resolve_paths` function: if input starts with `s3://`, call `list_s3_parquet` instead of local glob resolution +feature +s3
 (B) Add GCS URI detection in `parquet-lens-core/src/scanner.rs` `resolve_paths` function: if input starts with `gs://`, call `list_gcs_parquet` instead of local glob resolution +feature +gcs
 (B) Make `resolve_paths` in `parquet-lens-core/src/scanner.rs` async (add `async` keyword) since S3/GCS listing requires async I/O; update all callers in `parquet-lens-tui/src/main.rs` to `.await` +refactor +s3 +gcs
@@ -37,7 +27,6 @@
 (B) Make `EngineInfo` hint strings `&'static str` slices in `parquet-lens-core/src/engine.rs` and collect into `Vec<String>` only at the final `EngineInfo` construction, to avoid per-call `to_string()` allocations on each `&str` in the `hints` vec +refactor
 (B) Add `LargeUtf8` arm in `detect_duplicates` match in `parquet-lens-core/src/quality.rs` mirroring the `Utf8` arm to handle Arrow LargeUtf8 arrays +stability
 (B) Change `profile_timeseries` call in `parquet-lens-tui/src/main.rs` to avoid intermediate `String` conversion: pass `&paths[0].path` directly instead of converting to `String` and then `Path::new(&sp_path)` (already has `&Path` variant or can add one in `parquet-lens-core/src/timeseries.rs`) +refactor
-(B) Add `View::Duplicates` to the `to_session` / `restore_from_session` match arms in `parquet-lens-tui/src/tui/app.rs` so the session persists to/from the duplicate view +stability
 (B) Add `View::Compare` to the `to_session` / `restore_from_session` match arms in `parquet-lens-tui/src/tui/app.rs` +stability
 (B) Update help view render in `parquet-lens-tui/src/tui/ui.rs` to include all new keybinds: `V` (duplicates), `C` (null patterns), `A` (baseline), `G` (save baseline), `T` (timeseries), `X` (nested), `W` (repair), `P` (filter), `/` (search) +dx
 (B) Add GitHub Actions workflow file at `.github/workflows/ci.yml` running `cargo fmt --check` and `cargo clippy -- -D warnings` on push and PR to `main`, using `ubuntu-latest` and caching cargo registry +infra
