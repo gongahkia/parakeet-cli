@@ -1,4 +1,3 @@
-(B) Add `--watch` flag skeleton to `Inspect` subcommand in `parquet-lens-tui/src/main.rs` (`#[arg(long)] watch: bool`) that prints a "not yet implemented" message; this reserves the CLI surface for a future file-change polling feature without breaking the arg parser +dx
 (B) Validate that `sample` percentage arg is in range `(0.0, 100.0]` at CLI parse time in `parquet-lens-tui/src/main.rs` using clap `value_parser` with `clap::value_parser!(f64).range(0.0001..=100.0)` instead of clamping silently in business logic +stability +dx
 (B) Add `--no-sample-extrapolation` flag to `Inspect` subcommand in `parquet-lens-tui/src/main.rs` that, when set, prevents `SampleConfig` from applying confidence extrapolation, showing raw sampled counts +feature
 (B) Export `analyze_null_patterns` result as part of `export_json` output in `parquet-lens-core/src/export.rs` by adding a `null_patterns` field to the JSON object when called from CLI +feature +export
