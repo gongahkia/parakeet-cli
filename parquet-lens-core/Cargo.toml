@@ -14,3 +14,4 @@ tokio = { workspace = true }
 memmap2 = { workspace = true }
 bytes = { workspace = true }
 glob = { workspace = true }
+rayon = { workspace = true }
