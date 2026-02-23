@@ -1,11 +1,5 @@
-(B) Include `bookmarks` in `Session` struct in `parquet-lens-tui/src/tui/session.rs` and persist/restore them in `App::to_session` and `App::restore_from_session` +feature +dx
-(B) Include `sidebar_sort` and `sidebar_sort_asc` in `Session` struct in `parquet-lens-tui/src/tui/session.rs` and persist/restore them +feature +dx
-(B) Include `show_bookmarks_only` in `Session` struct in `parquet-lens-tui/src/tui/session.rs` and persist/restore it +feature +dx
-(B) Penalize score for `cardinality_flag` (cardinality == row count, i.e., likely a raw ID/UUID column with no compression benefit) in `score_column` in `parquet-lens-core/src/quality.rs`: deduct 5 points when flag is true, consistent with `is_plain_only` penalty +stability
 (B) Make `EngineInfo` hint strings `&'static str` slices in `parquet-lens-core/src/engine.rs` and collect into `Vec<String>` only at the final `EngineInfo` construction, to avoid per-call `to_string()` allocations on each `&str` in the `hints` vec +refactor
-(B) Add `LargeUtf8` arm in `detect_duplicates` match in `parquet-lens-core/src/quality.rs` mirroring the `Utf8` arm to handle Arrow LargeUtf8 arrays +stability
 (B) Change `profile_timeseries` call in `parquet-lens-tui/src/main.rs` to avoid intermediate `String` conversion: pass `&paths[0].path` directly instead of converting to `String` and then `Path::new(&sp_path)` (already has `&Path` variant or can add one in `parquet-lens-core/src/timeseries.rs`) +refactor
-(B) Add `View::Compare` to the `to_session` / `restore_from_session` match arms in `parquet-lens-tui/src/tui/app.rs` +stability
 (B) Update help view render in `parquet-lens-tui/src/tui/ui.rs` to include all new keybinds: `V` (duplicates), `C` (null patterns), `A` (baseline), `G` (save baseline), `T` (timeseries), `X` (nested), `W` (repair), `P` (filter), `/` (search) +dx
 (B) Add GitHub Actions workflow file at `.github/workflows/ci.yml` running `cargo fmt --check` and `cargo clippy -- -D warnings` on push and PR to `main`, using `ubuntu-latest` and caching cargo registry +infra
 (B) Add `--watch` flag skeleton to `Inspect` subcommand in `parquet-lens-tui/src/main.rs` (`#[arg(long)] watch: bool`) that prints a "not yet implemented" message; this reserves the CLI surface for a future file-change polling feature without breaking the arg parser +dx
