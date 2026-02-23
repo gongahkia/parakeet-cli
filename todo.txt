@@ -1,4 +1,3 @@
-(B) Expose `PartitionInfo` from `stats_ext.rs` in a `View::Partitions` TUI view accessible via `'Q'` keybind, showing partition columns, values, and file counts +feature
 (B) In `parquet-lens-core/src/sample.rs`, add `seed: Option<u64>` to `SampleConfig` for reproducible sampling (use seed to select deterministic row group indices instead of always taking the first N) +feature +stability
 (B) In `parquet-lens-tui/src/main.rs`, after `Config::load()` fails, print a warning to stderr (`eprintln!`) with the config file path so users know why defaults are being used — currently `unwrap_or_default()` silently swallows the error +dx +stability
 (B) Add a `'K'` keybind in TUI to copy the currently selected column's name to the system clipboard using `cli-clipboard` crate (add as optional dep) or fall back to printing to status bar +dx
