@@ -1,7 +1,7 @@
 use std::path::Path;
 use crossterm::event::{KeyCode, KeyEvent};
 use crate::tui::app::{App, Focus, ProfilingMode, SidebarSort, View};
-use parquet_lens_core::{parse_predicate, filter_count, BaselineProfile, analyze_null_patterns, detect_duplicates};
+use parquet_lens_core::{parse_predicate, filter_count, BaselineProfile, analyze_null_patterns, detect_duplicates, export_json, identify_engine, load_baseline_regressions, ColumnSchema};
 
 pub fn handle_key(app: &mut App, key: KeyEvent) {
     match key.code {
@@ -72,6 +72,29 @@ fn handle_sidebar(app: &mut App, key: KeyEvent) {
         KeyCode::Char('C') => {
             app.null_patterns = analyze_null_patterns(&app.agg_stats);
             app.view = View::NullPatterns;
+        }
+        KeyCode::Char('E') => {
+            // background JSON export to config.export.output_dir
+            let out_dir = std::path::Path::new(&app.config.export.output_dir);
+            if let Err(e) = std::fs::create_dir_all(out_dir) {
+                app.status_msg = format!("export dir error: {e}");
+            } else {
+                let out_path = out_dir.join("profile.json");
+                let Some(dataset) = app.dataset.clone() else {
+                    app.status_msg = "no dataset loaded".into();
+                    return;
+                };
+                let null_patterns = analyze_null_patterns(&app.agg_stats);
+                let engine_info = app.engine_info.clone();
+                let schema: Vec<ColumnSchema> = app.columns().to_vec();
+                let (_, baseline_regressions) = load_baseline_regressions(
+                    std::path::Path::new(&app.input_path), &app.agg_stats, &app.quality_scores, &schema,
+                );
+                match export_json(&out_path, &dataset, &app.agg_stats, &app.row_groups, &app.quality_scores, &null_patterns, engine_info.as_ref(), &baseline_regressions) {
+                    Ok(_) => { app.status_msg = format!("exported to {}", out_path.display()); }
+                    Err(e) => { app.status_msg = format!("export error: {e}"); }
+                }
+            }
         }
         KeyCode::Char('A') => { app.view = View::Baseline; }
         KeyCode::Char('G') => {
