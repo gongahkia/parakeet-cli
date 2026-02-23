@@ -1,7 +1,3 @@
-(B) Implement column size breakdown view: keybinding `Z` shows stacked bar chart of total byte size per column (compressed), sorted largest first — identifies columns dominating storage +tui
-(B) Implement search within column list: keybinding `/` in sidebar activates text filter, fuzzy-match column names, filter list in real-time as user types +tui
-(B) Implement column sorting in sidebar: keybinding `o` opens sort menu — sort by name (default), null rate, cardinality, size, quality score — ascending/descending toggle +tui
-(B) Implement file list view for multi-file datasets: keybinding `F` shows scrollable file table with path, row count, size, row group count, schema hash — highlight files with schema inconsistencies +tui
 (B) Implement encoding recommendation engine: for each column, suggest optimal encoding based on cardinality and data type (e.g., low cardinality string → DICTIONARY, sorted int → DELTA_BINARY_PACKED), show current vs recommended +quality
 (B) Implement compression recommendation: compare current codec's ratio against estimated ratios for alternatives (ZSTD typically best general-purpose), flag columns where switching codec could save >20% space +quality
 (B) Add `summary` subcommand headless output: print dataset profile as formatted table to stdout (file count, row count, columns, size, quality score, top issues), parseable with column alignment +cli
