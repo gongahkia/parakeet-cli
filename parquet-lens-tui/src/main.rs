@@ -91,7 +91,10 @@ enum Commands {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
-    let config = Config::load().unwrap_or_default();
+    let config = Config::load().unwrap_or_else(|e| {
+        eprintln!("warning: config load failed ({}): {e} — using defaults", Config::config_path().display());
+        Config::default()
+    });
     match cli.command {
         Commands::Inspect { path, sample, watch, no_sample_extrapolation, save_baseline, sample_seed } => {
             if watch { eprintln!("--watch: not yet implemented"); }
