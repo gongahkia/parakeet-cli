@@ -1,3 +1,6 @@
+pub mod config;
+pub use config::Config;
+
 use thiserror::Error;
 
 #[derive(Error, Debug)]
