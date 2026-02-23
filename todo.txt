@@ -1,2 +1,1 @@
-(B) Add a `'K'` keybind in TUI to copy the currently selected column's name to the system clipboard using `cli-clipboard` crate (add as optional dep) or fall back to printing to status bar +dx
 (B) Add `--json` flag to `summary` subcommand in `parquet-lens-tui/src/main.rs` that outputs the `DatasetQuality` struct as raw JSON to stdout for pipeline use +feature +dx
