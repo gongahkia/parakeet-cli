@@ -77,6 +77,7 @@ enum Commands {
         path: String,
         #[arg(long)] save: bool,
         #[arg(long, default_value = "plain")] format: String,
+        #[arg(long)] json: bool,
     },
     Compare { path1: String, path2: String },
     Export {
@@ -100,7 +101,7 @@ async fn main() -> anyhow::Result<()> {
             if watch { eprintln!("--watch: not yet implemented"); }
             run_tui(path, config, sample, no_sample_extrapolation, save_baseline, sample_seed)?
         }
-        Commands::Summary { path, save, format } => run_summary(path, save, &format, &config)?,
+        Commands::Summary { path, save, format, json } => run_summary(path, save, &format, json, &config)?,
         Commands::Compare { path1, path2 } => run_compare(path1, path2, config)?,
         Commands::Export { path, format, columns, output } => run_export(path, format, columns, output, config)?,
         Commands::Duplicates { path } => run_duplicates(path)?,
@@ -349,7 +350,7 @@ fn run_compare(path1: String, path2: String, config: Config) -> anyhow::Result<(
     Ok(())
 }
 
-fn run_summary(input_path: String, save: bool, format: &str, config: &Config) -> anyhow::Result<()> {
+fn run_summary(input_path: String, save: bool, format: &str, json_out: bool, config: &Config) -> anyhow::Result<()> {
     let paths = rp(&input_path)?;
     if paths.is_empty() { anyhow::bail!("No Parquet files found: {input_path}"); }
     let (dataset, _, meta) = load_file_stats(&paths)?;
@@ -361,6 +362,10 @@ fn run_summary(input_path: String, save: bool, format: &str, config: &Config) ->
     let total_cells = total_rows * dataset.combined_schema.len() as i64;
     let total_nulls: u64 = agg_stats.iter().map(|s| s.total_null_count).sum();
     let quality = summarize_quality(quality_scores, total_cells, total_nulls, true);
+    if json_out {
+        println!("{}", serde_json::to_string(&quality)?);
+        return Ok(());
+    }
     if format == "pretty" {
         const BOLD: &str = "\x1b[1m"; const RESET: &str = "\x1b[0m";
         const GREEN: &str = "\x1b[32m"; const YELLOW: &str = "\x1b[33m"; const RED: &str = "\x1b[31m";
