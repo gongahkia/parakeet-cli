@@ -13,3 +13,4 @@ serde = { workspace = true }
 tokio = { workspace = true }
 memmap2 = { workspace = true }
 bytes = { workspace = true }
+glob = { workspace = true }
