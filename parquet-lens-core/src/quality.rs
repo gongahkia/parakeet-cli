@@ -34,7 +34,7 @@ pub fn score_column(
     if is_constant { score -= 20.0; notes.push("constant_column".into()); }
     // high cardinality (= row count, likely an ID or raw event column)
     let cardinality_flag = distinct_count.map_or(false, |d| total_rows > 0 && d as i64 == total_rows);
-    if cardinality_flag { notes.push("cardinality=row_count".into()); }
+    if cardinality_flag { score -= 5.0; notes.push("cardinality=row_count".into()); }
     // plain-only encoding
     if is_plain_only { score -= 5.0; notes.push("plain_only_encoding".into()); }
     QualityScore {
@@ -89,8 +89,9 @@ pub fn detect_duplicates(path: &Path) -> Result<DuplicateReport> {
     let reader = builder.with_batch_size(65536)
         .build()
         .map_err(ParquetLensError::Parquet)?;
-    // bloom filter: 1% false positive rate
-    let mut bloom: Bloom<u64> = Bloom::new_for_fp_rate(total_rows_estimate.max(1000), 0.01);
+    // bloom filter: 1% false positive rate, capped at 50M to prevent OOM
+    let bloom_size = total_rows_estimate.min(50_000_000).max(1000);
+    let mut bloom: Bloom<u64> = Bloom::new_for_fp_rate(bloom_size, 0.01);
     let mut total_rows = 0u64;
     let mut estimated_dups = 0u64;
     for batch_result in reader {
@@ -101,20 +102,39 @@ pub fn detect_duplicates(path: &Path) -> Result<DuplicateReport> {
                 if !col.is_null(row) {
                     match col.data_type() {
                         arrow::datatypes::DataType::Int32 => {
-                            let v = col.as_any().downcast_ref::<arrow::array::Int32Array>().unwrap().value(row);
-                            row_bytes.extend_from_slice(&v.to_le_bytes());
+                            if let Some(arr) = col.as_any().downcast_ref::<arrow::array::Int32Array>() {
+                                row_bytes.extend_from_slice(&arr.value(row).to_le_bytes());
+                            }
                         }
                         arrow::datatypes::DataType::Int64 => {
-                            let v = col.as_any().downcast_ref::<arrow::array::Int64Array>().unwrap().value(row);
-                            row_bytes.extend_from_slice(&v.to_le_bytes());
+                            if let Some(arr) = col.as_any().downcast_ref::<arrow::array::Int64Array>() {
+                                row_bytes.extend_from_slice(&arr.value(row).to_le_bytes());
+                            }
+                        }
+                        arrow::datatypes::DataType::Float32 => {
+                            if let Some(arr) = col.as_any().downcast_ref::<arrow::array::Float32Array>() {
+                                row_bytes.extend_from_slice(&arr.value(row).to_le_bytes());
+                            }
                         }
                         arrow::datatypes::DataType::Float64 => {
-                            let v = col.as_any().downcast_ref::<arrow::array::Float64Array>().unwrap().value(row);
-                            row_bytes.extend_from_slice(&v.to_le_bytes());
+                            if let Some(arr) = col.as_any().downcast_ref::<arrow::array::Float64Array>() {
+                                row_bytes.extend_from_slice(&arr.value(row).to_le_bytes());
+                            }
+                        }
+                        arrow::datatypes::DataType::Boolean => {
+                            if let Some(arr) = col.as_any().downcast_ref::<arrow::array::BooleanArray>() {
+                                row_bytes.push(arr.value(row) as u8);
+                            }
                         }
                         arrow::datatypes::DataType::Utf8 => {
-                            let v = col.as_any().downcast_ref::<arrow::array::StringArray>().unwrap().value(row);
-                            row_bytes.extend_from_slice(v.as_bytes());
+                            if let Some(arr) = col.as_any().downcast_ref::<arrow::array::StringArray>() {
+                                row_bytes.extend_from_slice(arr.value(row).as_bytes());
+                            }
+                        }
+                        arrow::datatypes::DataType::LargeUtf8 => {
+                            if let Some(arr) = col.as_any().downcast_ref::<arrow::array::LargeStringArray>() {
+                                row_bytes.extend_from_slice(arr.value(row).as_bytes());
+                            }
                         }
                         _ => row_bytes.push(0u8),
                     }
