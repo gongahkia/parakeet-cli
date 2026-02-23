@@ -170,6 +170,7 @@ pub struct SortedOrderInfo {
     pub column_name: String,
     pub appears_ascending: bool,
     pub appears_descending: bool,
+    pub confidence: f64, // ratio of in-order adjacent row-group pairs (0.0–1.0)
 }
 
 pub fn detect_sort_order(meta: &ParquetMetaData) -> Vec<SortedOrderInfo> {
@@ -178,6 +179,8 @@ pub fn detect_sort_order(meta: &ParquetMetaData) -> Vec<SortedOrderInfo> {
         let col_name = schema.column(col_idx).name().to_owned();
         let mut last_max: Option<Vec<u8>> = None;
         let mut asc = true; let mut desc = true;
+        let mut total_pairs = 0usize;
+        let mut asc_pairs = 0usize;
         for rg_idx in 0..meta.num_row_groups() {
             let rg = meta.row_group(rg_idx);
             if col_idx >= rg.num_columns() { break; }
@@ -186,13 +189,15 @@ pub fn detect_sort_order(meta: &ParquetMetaData) -> Vec<SortedOrderInfo> {
                 let min = stats.min_bytes_opt().map(|b| b.to_vec());
                 let max = stats.max_bytes_opt().map(|b| b.to_vec());
                 if let (Some(ref prev_max), Some(ref cur_min)) = (&last_max, &min) {
-                    if cur_min < prev_max { asc = false; }
+                    total_pairs += 1;
+                    if cur_min >= prev_max { asc_pairs += 1; } else { asc = false; }
                     if cur_min > prev_max { desc = false; }
                 }
                 last_max = max;
             }
         }
-        SortedOrderInfo { column_name: col_name, appears_ascending: asc, appears_descending: desc }
+        let confidence = if total_pairs == 0 { 1.0 } else { asc_pairs as f64 / total_pairs as f64 };
+        SortedOrderInfo { column_name: col_name, appears_ascending: asc, appears_descending: desc, confidence }
     }).collect()
 }
 
