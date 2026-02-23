@@ -19,7 +19,7 @@ use parquet_lens_core::{
     summarize_quality, print_summary, export_json, export_csv,
     sample_row_groups, SampleConfig,
     detect_repair_suggestions, profile_timeseries, profile_nested_columns,
-    identify_engine, load_baseline_regressions,
+    identify_engine, load_baseline_regressions, analyze_null_patterns,
     compare_datasets, profile_columns, detect_duplicates,
     is_s3_uri, read_s3_parquet_metadata,
     is_gcs_uri, read_gcs_parquet_metadata,
@@ -158,6 +158,9 @@ fn run_tui(input_path: String, config: Config, sample_pct: Option<f64>) -> anyho
         app.has_baseline = base.is_some();
         app.baseline_regressions = regressions;
     }
+
+    // pre-compute null patterns
+    app.null_patterns = analyze_null_patterns(&app.agg_stats);
 
     if let Some(pct) = sample_pct {
         let pct = pct.clamp(1.0, 100.0);
