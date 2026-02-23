@@ -6,32 +6,34 @@ use ratatui::{
     widgets::{Block, Borders, Cell, Gauge, List, ListItem, ListState, Paragraph, Row, Table, Wrap},
 };
 use crate::tui::app::{App, Focus, ProfilingMode, ProgressState, View};
+use crate::tui::theme::Theme;
 
 pub fn render(frame: &mut Frame, app: &App) {
+    let theme = Theme::from_name(&app.config.display.theme);
     let area = frame.area();
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(1), Constraint::Min(0), Constraint::Length(1)])
         .split(area);
-    render_topbar(frame, app, chunks[0]);
+    render_topbar(frame, app, chunks[0], &theme);
     let mid = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Length(30), Constraint::Min(0)])
         .split(chunks[1]);
-    render_sidebar(frame, app, mid[0]);
-    render_main(frame, app, mid[1]);
-    render_bottombar(frame, app, chunks[2]);
+    render_sidebar(frame, app, mid[0], &theme);
+    render_main(frame, app, mid[1], &theme);
+    render_bottombar(frame, app, chunks[2], &theme);
     if app.view == View::Help { render_help(frame, area); }
     if app.view == View::ConfirmFullScan { render_confirm(frame, area); }
     if let ProgressState::Running { rows_processed, total_rows } = &app.progress {
-        render_progress(frame, area, *rows_processed, *total_rows);
+        render_progress(frame, area, *rows_processed, *total_rows, &theme);
     }
 }
 
-fn render_topbar(frame: &mut Frame, app: &App, area: Rect) {
+fn render_topbar(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
     let badge = match app.profiling_mode {
-        ProfilingMode::Metadata => Span::styled("[META]", Style::default().fg(Color::Green)),
-        ProfilingMode::FullScan => Span::styled("[SCAN]", Style::default().fg(Color::Red)),
+        ProfilingMode::Metadata => Span::styled("[META]", Style::default().fg(theme.success)),
+        ProfilingMode::FullScan => Span::styled("[SCAN]", Style::default().fg(theme.error)),
     };
     let info = if let Some(ds) = &app.dataset {
         format!(" {} | {} files | {} rows | {}", app.input_path, ds.file_count, ds.total_rows, fmt_bytes(ds.total_bytes))
@@ -39,23 +41,23 @@ fn render_topbar(frame: &mut Frame, app: &App, area: Rect) {
         format!(" {}", app.input_path)
     };
     let line = Line::from(vec![badge, Span::raw(info)]);
-    frame.render_widget(Paragraph::new(line).style(Style::default().bg(Color::DarkGray)), area);
+    frame.render_widget(Paragraph::new(line).style(Style::default().bg(theme.bg).fg(theme.fg)), area);
 }
 
-fn render_sidebar(frame: &mut Frame, app: &App, area: Rect) {
+fn render_sidebar(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
     let focused = app.focus == Focus::Sidebar;
     let search_suffix = if app.sidebar_searching { format!("/{}_", app.sidebar_search) } else if !app.sidebar_search.is_empty() { format!("/{}", app.sidebar_search) } else { String::new() };
     let bmark_flag = if app.show_bookmarks_only { " [★]" } else { "" };
     let title = format!("Columns{bmark_flag}{search_suffix}");
     let block = Block::default().borders(Borders::ALL).title(title)
-        .border_style(if focused { Style::default().fg(Color::Yellow) } else { Style::default() });
+        .border_style(if focused { Style::default().fg(theme.highlight) } else { Style::default() });
     let cols = app.columns();
     let indices = app.filtered_column_indices();
     let items: Vec<ListItem> = indices.iter().map(|&i| {
         let col = &cols[i];
         let icon = type_icon(&col.physical_type);
         let quality = app.quality_scores.iter().find(|s| s.column_name == col.name).map(|s| s.score).unwrap_or(100);
-        let qcolor = if quality >= 80 { Color::Green } else if quality >= 50 { Color::Yellow } else { Color::Red };
+        let qcolor = if quality >= 80 { theme.success } else if quality >= 50 { theme.warning } else { theme.error };
         let bmark = if app.bookmarks.contains(&col.name) { "★" } else { " " };
         ListItem::new(Line::from(vec![
             Span::raw(format!("{bmark}{icon} {:<16}", truncate(&col.name, 16))),
@@ -68,15 +70,15 @@ fn render_sidebar(frame: &mut Frame, app: &App, area: Rect) {
     frame.render_stateful_widget(list, area, &mut state);
 }
 
-fn render_main(frame: &mut Frame, app: &App, area: Rect) {
+fn render_main(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
     match &app.view {
         View::FileOverview | View::ConfirmFullScan | View::Help => render_file_overview(frame, app, area),
-        View::Schema => render_schema(frame, app, area),
-        View::ColumnDetail(idx) => render_column_detail(frame, app, area, *idx),
-        View::RowGroups => render_row_groups(frame, app, area),
-        View::NullHeatmap => render_null_heatmap(frame, app, area),
+        View::Schema => render_schema(frame, app, area, theme),
+        View::ColumnDetail(idx) => render_column_detail(frame, app, area, *idx, theme),
+        View::RowGroups => render_row_groups(frame, app, area, theme),
+        View::NullHeatmap => render_null_heatmap(frame, app, area, theme),
         View::DataPreview => render_data_preview(frame, app, area),
-        View::Compare => render_compare(frame, app, area),
+        View::Compare => render_compare(frame, app, area, theme),
         View::ColumnSizeBreakdown => render_col_size_breakdown(frame, app, area),
         View::FileList => render_file_list(frame, app, area),
     }
@@ -113,7 +115,7 @@ fn render_file_list(frame: &mut Frame, app: &App, area: Rect) {
     frame.render_widget(table, area);
 }
 
-fn render_compare(frame: &mut Frame, app: &App, area: Rect) {
+fn render_compare(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
     use parquet_lens_core::compare::DiffStatus;
     let Some(cmp) = &app.comparison else {
         frame.render_widget(Paragraph::new("No comparison loaded.").block(Block::default().borders(Borders::ALL).title("Compare")), area);
@@ -123,7 +125,6 @@ fn render_compare(frame: &mut Frame, app: &App, area: Rect) {
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(area);
-    // left: summary + schema diff
     let mut left_lines = Vec::new();
     left_lines.push(Line::from(Span::styled("Dataset A", Style::default().add_modifier(Modifier::BOLD))));
     left_lines.push(Line::from(format!("Rows:  {}  Files: {}  Size: {}", cmp.left_rows, cmp.left_files, fmt_bytes(cmp.left_bytes))));
@@ -132,15 +133,14 @@ fn render_compare(frame: &mut Frame, app: &App, area: Rect) {
     left_lines.push(Line::from(Span::styled("Schema Diff:", Style::default().add_modifier(Modifier::BOLD))));
     for d in &cmp.schema_diffs {
         let (prefix, color) = match d.status {
-            DiffStatus::Added => ("+", Color::Green),
-            DiffStatus::Removed => ("-", Color::Red),
-            DiffStatus::TypeChanged => ("~", Color::Yellow),
-            DiffStatus::Matching => (" ", Color::White),
+            DiffStatus::Added => ("+", theme.success),
+            DiffStatus::Removed => ("-", theme.error),
+            DiffStatus::TypeChanged => ("~", theme.warning),
+            DiffStatus::Matching => (" ", theme.fg),
         };
         left_lines.push(Line::from(Span::styled(format!("{prefix} {:<24} {}", d.name, d.left_type.as_deref().unwrap_or("-")), Style::default().fg(color))));
     }
     frame.render_widget(Paragraph::new(left_lines).block(Block::default().borders(Borders::ALL).title("Left dataset (A)")).wrap(Wrap { trim: false }), panes[0]);
-    // right: summary + stats diff
     let mut right_lines = Vec::new();
     right_lines.push(Line::from(Span::styled("Dataset B", Style::default().add_modifier(Modifier::BOLD))));
     right_lines.push(Line::from(format!("Rows:  {}  Files: {}  Size: {}", cmp.right_rows, cmp.right_files, fmt_bytes(cmp.right_bytes))));
@@ -150,7 +150,7 @@ fn render_compare(frame: &mut Frame, app: &App, area: Rect) {
     right_lines.push(Line::from(""));
     right_lines.push(Line::from(Span::styled("Stats Diff:", Style::default().add_modifier(Modifier::BOLD))));
     for d in &cmp.stats_diffs {
-        let color = if d.null_rate_significant { Color::Red } else { Color::White };
+        let color = if d.null_rate_significant { theme.error } else { theme.fg };
         right_lines.push(Line::from(Span::styled(
             format!("{:<24} null: {:+.2}%  card: {}", d.name, d.null_rate_delta, d.cardinality_delta.map_or("-".into(), |c| format!("{c:+}"))),
             Style::default().fg(color)
@@ -181,10 +181,10 @@ fn render_file_overview(frame: &mut Frame, app: &App, area: Rect) {
     frame.render_widget(Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title("File Overview")).wrap(Wrap { trim: false }), area);
 }
 
-fn render_schema(frame: &mut Frame, app: &App, area: Rect) {
+fn render_schema(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
     let header = Row::new(["Name","Physical","Logical","Repetition","DefLvl","RepLvl"].map(|h| Cell::from(h).style(Style::default().add_modifier(Modifier::BOLD))));
     let rows: Vec<Row> = app.columns().iter().map(|col| {
-        let color = type_color(&col.physical_type, col.logical_type.as_deref());
+        let color = type_color(&col.physical_type, col.logical_type.as_deref(), theme);
         Row::new([
             col.name.clone(), col.physical_type.clone(),
             col.logical_type.clone().unwrap_or_else(|| "-".into()),
@@ -197,7 +197,7 @@ fn render_schema(frame: &mut Frame, app: &App, area: Rect) {
     frame.render_widget(table, area);
 }
 
-fn render_column_detail(frame: &mut Frame, app: &App, area: Rect, idx: usize) {
+fn render_column_detail(frame: &mut Frame, app: &App, area: Rect, idx: usize, theme: &Theme) {
     let cols = app.columns();
     if idx >= cols.len() { return; }
     let col = &cols[idx];
@@ -217,7 +217,7 @@ fn render_column_detail(frame: &mut Frame, app: &App, area: Rect, idx: usize) {
         lines.push(Line::from(format!("Codec:      {}  {:.2}x", comp.codec, comp.compression_ratio)));
     }
     if let Some(qs) = app.quality_scores.iter().find(|s| s.column_name == col.name) {
-        let color = if qs.score >= 80 { Color::Green } else if qs.score >= 50 { Color::Yellow } else { Color::Red };
+        let color = if qs.score >= 80 { theme.success } else if qs.score >= 50 { theme.warning } else { theme.error };
         lines.push(Line::from(vec![Span::styled("Quality:    ", Style::default().add_modifier(Modifier::BOLD)), Span::styled(format!("{}/100 ", qs.score), Style::default().fg(color)), Span::raw(qs.breakdown.clone())]));
     }
     if let Some(fsr) = app.full_scan_results.iter().find(|r| r.column_name == col.name) {
@@ -255,7 +255,7 @@ fn render_column_detail(frame: &mut Frame, app: &App, area: Rect, idx: usize) {
     frame.render_widget(Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title(format!("Column: {}", col.name))).wrap(Wrap { trim: false }), area);
 }
 
-fn render_row_groups(frame: &mut Frame, app: &App, area: Rect) {
+fn render_row_groups(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
     let mut rgs = app.row_groups.clone();
     match app.rg_sort_col {
         0 => rgs.sort_by_key(|r| r.index),
@@ -270,7 +270,7 @@ fn render_row_groups(frame: &mut Frame, app: &App, area: Rect) {
     let rows: Vec<Row> = rgs.iter().map(|rg| {
         let outlier = (rg.total_byte_size as f64 - mean_b).abs() > 2.0 * std_b && std_b > 0.0;
         Row::new([rg.index.to_string(), rg.num_rows.to_string(), fmt_bytes(rg.total_byte_size as u64), fmt_bytes(rg.compressed_size as u64), format!("{:.2}x", rg.compression_ratio)])
-            .style(if outlier { Style::default().fg(Color::Red) } else { Style::default() })
+            .style(if outlier { Style::default().fg(theme.error) } else { Style::default() })
     }).collect();
     let hdrs: Vec<String> = ["idx","rows","bytes","compressed","ratio"].iter().enumerate().map(|(i, h)| {
         let arrow = if i == app.rg_sort_col { if app.rg_sort_asc { "▲" } else { "▼" } } else { "" };
@@ -282,7 +282,7 @@ fn render_row_groups(frame: &mut Frame, app: &App, area: Rect) {
     frame.render_widget(table, area);
 }
 
-fn render_null_heatmap(frame: &mut Frame, app: &App, area: Rect) {
+fn render_null_heatmap(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
     let mut lines = Vec::new();
     lines.push(Line::from("Null Heatmap — ░<1% ▒<25% ▓<75% █>=75%"));
     lines.push(Line::from(""));
@@ -293,7 +293,7 @@ fn render_null_heatmap(frame: &mut Frame, app: &App, area: Rect) {
         let mut row_spans = vec![Span::raw(format!("rg{:>3}  ", rg.index))];
         for col in app.columns().iter().take(max_cols) {
             let null_pct = app.agg_stats.iter().find(|s| s.column_name == col.name).map(|s| s.null_percentage).unwrap_or(0.0);
-            let (ch, color) = if null_pct < 1.0 { ("\u{2591}", Color::White) } else if null_pct < 25.0 { ("\u{2592}", Color::Yellow) } else if null_pct < 75.0 { ("\u{2593}", Color::LightRed) } else { ("\u{2588}", Color::Red) };
+            let (ch, color) = if null_pct < 1.0 { ("\u{2591}", theme.fg) } else if null_pct < 25.0 { ("\u{2592}", theme.warning) } else if null_pct < 75.0 { ("\u{2593}", theme.error) } else { ("\u{2588}", theme.error) };
             row_spans.push(Span::styled(format!("{:>7}", ch), Style::default().fg(color)));
         }
         lines.push(Line::from(row_spans));
@@ -343,15 +343,15 @@ fn render_confirm(frame: &mut Frame, area: Rect) {
     frame.render_widget(Paragraph::new("File >1GB. Full-scan may be slow.\nEnter: confirm  Esc: cancel").block(Block::default().borders(Borders::ALL).title("Confirm Full Scan")), popup);
 }
 
-fn render_progress(frame: &mut Frame, area: Rect, rp: u64, tr: u64) {
+fn render_progress(frame: &mut Frame, area: Rect, rp: u64, tr: u64, theme: &Theme) {
     let popup = centered_rect(50, 10, area);
     frame.render_widget(ratatui::widgets::Clear, popup);
     let ratio = if tr > 0 { (rp as f64 / tr as f64).min(1.0) } else { 0.0 };
-    frame.render_widget(Gauge::default().block(Block::default().borders(Borders::ALL).title("Profiling... (Esc cancel)")).gauge_style(Style::default().fg(Color::Cyan)).ratio(ratio).label(format!("{rp}/{tr}")), popup);
+    frame.render_widget(Gauge::default().block(Block::default().borders(Borders::ALL).title("Profiling... (Esc cancel)")).gauge_style(Style::default().fg(theme.numeric)).ratio(ratio).label(format!("{rp}/{tr}")), popup);
 }
 
-fn render_bottombar(frame: &mut Frame, app: &App, area: Rect) {
-    frame.render_widget(Paragraph::new(format!(" {} | q:quit ?:help Tab:focus S R N D m", app.status_msg)).style(Style::default().bg(Color::DarkGray)), area);
+fn render_bottombar(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
+    frame.render_widget(Paragraph::new(format!(" {} | q:quit ?:help Tab:focus S R N D m", app.status_msg)).style(Style::default().bg(theme.bg).fg(theme.fg)), area);
 }
 
 fn centered_rect(px: u16, py: u16, r: Rect) -> Rect {
@@ -363,12 +363,12 @@ fn type_icon(t: &str) -> &'static str {
     match t { "INT32"|"INT64" => "#", "FLOAT"|"DOUBLE" => "~", "BYTE_ARRAY"|"FIXED_LEN_BYTE_ARRAY" => "\"", "BOOLEAN" => "?", _ => "." }
 }
 
-fn type_color(phys: &str, log: Option<&str>) -> Color {
+fn type_color(phys: &str, log: Option<&str>, theme: &Theme) -> Color {
     if let Some(lt) = log {
-        if lt.contains("String") || lt.contains("Utf8") { return Color::Green; }
-        if lt.contains("Date") || lt.contains("Timestamp") { return Color::Yellow; }
+        if lt.contains("String") || lt.contains("Utf8") { return theme.string; }
+        if lt.contains("Date") || lt.contains("Timestamp") { return theme.temporal; }
     }
-    match phys { "INT32"|"INT64"|"FLOAT"|"DOUBLE" => Color::Cyan, "BOOLEAN" => Color::Magenta, _ => Color::White }
+    match phys { "INT32"|"INT64"|"FLOAT"|"DOUBLE" => theme.numeric, "BOOLEAN" => theme.boolean, _ => theme.fg }
 }
 
 fn fmt_bytes(b: u64) -> String {
