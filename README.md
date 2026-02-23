@@ -12,6 +12,12 @@
 
 ## Usage
 
+The below instructions are for locally running `Parakeet CLI`.
+
+```console
+
+```
+
 ...
 
 ## Architecture
