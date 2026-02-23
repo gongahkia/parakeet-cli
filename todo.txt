@@ -1,7 +1,3 @@
-(B) Wire `compare` subcommand in `parquet-lens-tui/src/main.rs` to launch TUI with `View::Compare` active, loading both files via `read_metadata_parallel`, calling `compare_datasets`, and storing result in `app.comparison` +feature +compare
-(B) Add path existence validation in `run_compare` before calling core logic; bail with `anyhow::bail!` if either path is empty or not found +stability +compare
-(B) Add `run_compare(path1: String, path2: String) -> anyhow::Result<()>` function in `parquet-lens-tui/src/main.rs` that mirrors `run_tui` structure but pre-populates `app.comparison` and sets initial `View::Compare` +feature +compare
-(B) In `parquet-lens-tui/src/tui/ui.rs`, implement the `View::Compare` render branch to display schema diffs (Added/Removed/TypeChanged columns) and stats diffs (null rate delta, cardinality delta, size delta) as a two-column table using ratatui `Table` widget +feature +compare
 (B) Add async FullScan re-profiling to TUI: spawn a `tokio::task::spawn_blocking` call to run `profile_columns` when user triggers `ProfilingMode::FullScan` transition, communicating progress via `std::sync::mpsc::channel` into `app.progress` +feature +fullscan
 (B) Add a `progress_rx: Option<std::sync::mpsc::Receiver<u64>>` field to `App` struct in `parquet-lens-tui/src/tui/app.rs` for async full-scan progress updates +feature +fullscan
 (B) In the TUI main loop in `parquet-lens-tui/src/main.rs`, poll `app.progress_rx` each tick and update `app.progress` state (rows_processed, total_rows) for rendering +feature +fullscan
@@ -61,7 +57,6 @@
 (B) In `parquet-lens-core/src/baseline.rs` `BaselineProfile::diff`, detect type changes (not just column addition/removal) by comparing `col.physical_type` between baseline schema and current schema for matching column names +feature +stability
 (B) Add `--save-baseline` flag to `Inspect` subcommand in `parquet-lens-tui/src/main.rs` that, when set, automatically saves a baseline profile after loading (mirrors the `G` keybind but accessible at launch for CI use) +feature +dx
 (B) In `parquet-lens-tui/src/tui/ui.rs` `View::Baseline` render branch, display the baseline's `captured_at` unix timestamp as a human-readable date string using `std::time::UNIX_EPOCH + Duration::from_secs(captured_at)` formatted via `chrono` or manual computation +dx
-(B) Add `compare` subcommand handling in `parquet-lens-tui/src/main.rs` `main()` match arm: route to new `run_compare` instead of current `println!` stub +feature +compare
 (B) In `parquet-lens-core/src/parallel_reader.rs`, validate that all files in a directory share the same schema root columns before aggregating into `DatasetProfile`; surface schema inconsistencies in `DatasetProfile.schema_inconsistencies` field instead of silently merging mismatched schemas +stability
 (B) Add `summary` subcommand to session persistence: write summary output to a JSON file at `config.export.output_dir/summary.json` when `--save` flag is passed to `summary` subcommand +feature
 (B) In `parquet-lens-core/src/stats.rs`, guard against division by zero in `null_percentage` calculation when `total_rows == 0` +stability
