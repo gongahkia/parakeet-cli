@@ -16,6 +16,8 @@ pub use profile::{ColumnProfileResult, CardinalityEstimate, FrequencyResult, Num
 pub mod quality;
 pub mod s3_reader;
 pub mod gcs_reader;
+pub mod compare;
 pub use quality::{QualityScore, DatasetQuality, DuplicateReport, score_column, summarize_quality, detect_duplicates};
 pub use s3_reader::{S3Uri, parse_s3_uri, is_s3_uri, list_s3_parquet, read_s3_parquet_metadata, read_s3_range};
 pub use gcs_reader::{GcsUri, parse_gcs_uri, is_gcs_uri, list_gcs_parquet, read_gcs_parquet_metadata};
+pub use compare::{ColumnSchemaDiff, DiffStatus, ColumnStatsDiff, DatasetComparison, diff_schemas, diff_stats, compare_datasets};

@@ -1,12 +1,12 @@
 use parquet_lens_core::{
     DatasetProfile, ColumnSchema, ParquetFileInfo, RowGroupProfile,
     AggregatedColumnStats, EncodingAnalysis, CompressionAnalysis,
-    QualityScore, ColumnProfileResult,
+    QualityScore, ColumnProfileResult, DatasetComparison,
 };
 use parquet_lens_common::Config;
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum View { FileOverview, Schema, ColumnDetail(usize), RowGroups, NullHeatmap, DataPreview, Help, ConfirmFullScan }
+pub enum View { FileOverview, Schema, ColumnDetail(usize), RowGroups, NullHeatmap, DataPreview, Help, ConfirmFullScan, Compare }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ProfilingMode { Metadata, FullScan }
@@ -41,6 +41,8 @@ pub struct App {
     pub status_msg: String,
     pub should_quit: bool,
     pub config: Config,
+    pub comparison: Option<DatasetComparison>,
+    pub compare_sidebar_col: usize,
 }
 
 impl App {
@@ -58,6 +60,7 @@ impl App {
             progress: ProgressState::Idle,
             status_msg: String::from("Loading..."),
             should_quit: false, config,
+            comparison: None, compare_sidebar_col: 0,
         }
     }
     pub fn columns(&self) -> &[ColumnSchema] {

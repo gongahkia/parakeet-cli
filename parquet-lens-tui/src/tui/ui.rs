@@ -71,7 +71,54 @@ fn render_main(frame: &mut Frame, app: &App, area: Rect) {
         View::RowGroups => render_row_groups(frame, app, area),
         View::NullHeatmap => render_null_heatmap(frame, app, area),
         View::DataPreview => render_data_preview(frame, app, area),
+        View::Compare => render_compare(frame, app, area),
     }
+}
+
+fn render_compare(frame: &mut Frame, app: &App, area: Rect) {
+    use parquet_lens_core::compare::DiffStatus;
+    let Some(cmp) = &app.comparison else {
+        frame.render_widget(Paragraph::new("No comparison loaded.").block(Block::default().borders(Borders::ALL).title("Compare")), area);
+        return;
+    };
+    let panes = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+        .split(area);
+    // left: summary + schema diff
+    let mut left_lines = Vec::new();
+    left_lines.push(Line::from(Span::styled("Dataset A", Style::default().add_modifier(Modifier::BOLD))));
+    left_lines.push(Line::from(format!("Rows:  {}  Files: {}  Size: {}", cmp.left_rows, cmp.left_files, fmt_bytes(cmp.left_bytes))));
+    left_lines.push(Line::from(format!("Cols:  {}", cmp.left_columns)));
+    left_lines.push(Line::from(""));
+    left_lines.push(Line::from(Span::styled("Schema Diff:", Style::default().add_modifier(Modifier::BOLD))));
+    for d in &cmp.schema_diffs {
+        let (prefix, color) = match d.status {
+            DiffStatus::Added => ("+", Color::Green),
+            DiffStatus::Removed => ("-", Color::Red),
+            DiffStatus::TypeChanged => ("~", Color::Yellow),
+            DiffStatus::Matching => (" ", Color::White),
+        };
+        left_lines.push(Line::from(Span::styled(format!("{prefix} {:<24} {}", d.name, d.left_type.as_deref().unwrap_or("-")), Style::default().fg(color))));
+    }
+    frame.render_widget(Paragraph::new(left_lines).block(Block::default().borders(Borders::ALL).title("Left dataset (A)")).wrap(Wrap { trim: false }), panes[0]);
+    // right: summary + stats diff
+    let mut right_lines = Vec::new();
+    right_lines.push(Line::from(Span::styled("Dataset B", Style::default().add_modifier(Modifier::BOLD))));
+    right_lines.push(Line::from(format!("Rows:  {}  Files: {}  Size: {}", cmp.right_rows, cmp.right_files, fmt_bytes(cmp.right_bytes))));
+    right_lines.push(Line::from(format!("Cols:  {}", cmp.right_columns)));
+    right_lines.push(Line::from(format!("Row delta:  {:+}  ({:+.1}%)", cmp.row_delta, cmp.row_delta_pct)));
+    right_lines.push(Line::from(format!("Size delta: {:+} bytes", cmp.size_delta_bytes)));
+    right_lines.push(Line::from(""));
+    right_lines.push(Line::from(Span::styled("Stats Diff:", Style::default().add_modifier(Modifier::BOLD))));
+    for d in &cmp.stats_diffs {
+        let color = if d.null_rate_significant { Color::Red } else { Color::White };
+        right_lines.push(Line::from(Span::styled(
+            format!("{:<24} null: {:+.2}%  card: {}", d.name, d.null_rate_delta, d.cardinality_delta.map_or("-".into(), |c| format!("{c:+}"))),
+            Style::default().fg(color)
+        )));
+    }
+    frame.render_widget(Paragraph::new(right_lines).block(Block::default().borders(Borders::ALL).title("Right dataset (B)")).wrap(Wrap { trim: false }), panes[1]);
 }
 
 fn render_file_overview(frame: &mut Frame, app: &App, area: Rect) {
