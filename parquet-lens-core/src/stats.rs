@@ -1,5 +1,5 @@
 use parquet::file::metadata::ParquetMetaData;
-use parquet::file::statistics::Statistics;
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

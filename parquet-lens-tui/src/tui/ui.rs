@@ -21,14 +21,14 @@ pub fn render(frame: &mut Frame, app: &App) {
             Constraint::Length(1),
         ])
         .split(area);
-    render_topbar(frame, app, chunks[0], &theme);
+    render_topbar(frame, app, chunks[0], theme);
     let mid = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Length(30), Constraint::Min(0)])
         .split(chunks[1]);
-    render_sidebar(frame, app, mid[0], &theme);
-    render_main(frame, app, mid[1], &theme);
-    render_bottombar(frame, app, chunks[2], &theme);
+    render_sidebar(frame, app, mid[0], theme);
+    render_main(frame, app, mid[1], theme);
+    render_bottombar(frame, app, chunks[2], theme);
     if app.view == View::Help {
         render_help(frame, app, area);
     }
@@ -43,7 +43,7 @@ pub fn render(frame: &mut Frame, app: &App) {
         total_rows,
     } = &app.progress
     {
-        render_progress(frame, area, *rows_processed, *total_rows, &theme);
+        render_progress(frame, area, *rows_processed, *total_rows, theme);
     }
 }
 
@@ -399,9 +399,9 @@ fn render_timeseries(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
                 Cell::from(ts.column_name.clone()),
                 Cell::from(ts.min_timestamp.map_or("-".into(), |v| v.to_string())),
                 Cell::from(ts.max_timestamp.map_or("-".into(), |v| v.to_string())),
-                Cell::from(ts.total_duration_ms.map_or("-".into(), |v| fmt_ms(v))),
+                Cell::from(ts.total_duration_ms.map_or("-".into(), fmt_ms)),
                 Cell::from(ts.mean_gap_ms.map_or("-".into(), |v| fmt_ms(v as i64))),
-                Cell::from(ts.max_gap_ms.map_or("-".into(), |v| fmt_ms(v))),
+                Cell::from(ts.max_gap_ms.map_or("-".into(), fmt_ms)),
                 Cell::from(if ts.is_monotonic { "yes" } else { "NO" })
                     .style(Style::default().fg(mono_color)),
                 Cell::from(ts.missing_interval_hint.clone().unwrap_or_default()),
@@ -556,7 +556,7 @@ fn fmt_unix_secs(secs: u64) -> String {
     let min = remaining / secs_per_min;
     let sec = remaining % secs_per_min;
     // gregorian calendar approximation from days since epoch (1970-01-01)
-    let mut z = days_since_epoch as i64 + 719468;
+    let z = days_since_epoch as i64 + 719468;
     let era = if z >= 0 { z } else { z - 146096 } / 146097;
     let doe = (z - era * 146097) as u64;
     let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;

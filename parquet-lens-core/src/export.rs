@@ -27,6 +27,7 @@ pub fn print_summary(dataset: &DatasetProfile, quality: Option<&DatasetQuality>)
 
 // --- Task 63: JSON export ---
 
+#[allow(clippy::too_many_arguments)]
 pub fn export_json(
     output_path: &Path,
     dataset: &DatasetProfile,

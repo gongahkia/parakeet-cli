@@ -445,7 +445,7 @@ fn run_tui(
                     handle_key(&mut app, key);
                 }
                 Event::Mouse(mouse) => {
-                    use crossterm::event::{MouseEvent, MouseEventKind};
+                    use crossterm::event::MouseEventKind;
                     match mouse.kind {
                         MouseEventKind::ScrollDown => {
                             if app.focus == tui::app::Focus::Sidebar {

@@ -42,7 +42,7 @@ pub fn sample_row_groups(
     let seed = config.seed.unwrap_or(0);
     let mut indices: Vec<usize> = (0..total).collect();
     indices.sort_by_key(|&i| (i as u64 ^ seed).wrapping_mul(2654435761)); // knuth multiplicative hash
-    let selected: Vec<usize> = indices[..n].iter().cloned().collect();
+    let selected: Vec<usize> = indices[..n].to_vec();
 
     // profile only selected row groups
     let rg_all = profile_row_groups(&meta);

@@ -1,7 +1,7 @@
 use crate::reader::open_parquet_file;
 use crate::scanner::ParquetFilePath;
 use crate::schema::{extract_schema, ColumnSchema};
-use parquet_lens_common::{ParquetLensError, Result};
+use parquet_lens_common::Result;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;

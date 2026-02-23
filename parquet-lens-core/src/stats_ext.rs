@@ -157,7 +157,7 @@ pub fn compute_correlation(_meta: &ParquetMetaData, path: &Path) -> Result<Corre
                                     col.as_any()
                                         .downcast_ref::<Float64Array>()
                                         .unwrap()
-                                        .value(row) as f64
+                                        .value(row)
                                 }
                                 _ => f64::NAN,
                             }
@@ -166,6 +166,7 @@ pub fn compute_correlation(_meta: &ParquetMetaData, path: &Path) -> Result<Corre
                     .collect()
             })
             .collect();
+        #[allow(clippy::needless_range_loop)]
         for row in 0..batch_n {
             count += 1;
             for i in 0..n {

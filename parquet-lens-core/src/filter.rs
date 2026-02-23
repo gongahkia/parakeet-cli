@@ -647,8 +647,8 @@ fn eval_like(col: &str, pattern: &str, batch: &RecordBatch) -> BooleanArray {
 fn like_to_regex(pattern: &str) -> Vec<LikePart> {
     let mut parts = Vec::new();
     let mut literal = String::new();
-    let mut chars = pattern.chars().peekable();
-    while let Some(c) = chars.next() {
+    let chars = pattern.chars().peekable();
+    for c in chars {
         match c {
             '%' => {
                 if !literal.is_empty() {
