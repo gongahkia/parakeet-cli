@@ -598,12 +598,34 @@ fn like_match_at(s: &str, parts: &[LikePart]) -> bool {
     }
 }
 
+/// collect all column names referenced in predicate
+fn predicate_columns(pred: &Predicate) -> Vec<&str> {
+    match pred {
+        Predicate::Comparison { col, .. } | Predicate::IsNull(col) | Predicate::IsNotNull(col)
+        | Predicate::In { col, .. } | Predicate::Like { col, .. } => vec![col.as_str()],
+        Predicate::And(a, b) | Predicate::Or(a, b) => {
+            let mut cols = predicate_columns(a);
+            cols.extend(predicate_columns(b));
+            cols
+        }
+        Predicate::Not(inner) => predicate_columns(inner),
+    }
+}
+
 // --- main filter_count entry point ---
 
 pub fn filter_count(path: &Path, predicate: &Predicate) -> Result<FilterResult, String> {
     let file = File::open(path).map_err(|e| e.to_string())?;
     let reader = SerializedFileReader::new(file).map_err(|e| e.to_string())?;
     let meta = reader.metadata();
+    // bounds check: verify all referenced columns exist in schema
+    let schema = meta.file_metadata().schema_descr();
+    let schema_names: Vec<String> = (0..schema.num_columns()).map(|i| schema.column(i).name().to_owned()).collect();
+    for col in predicate_columns(predicate) {
+        if !schema_names.iter().any(|n| n == col) {
+            return Err(format!("column '{}' not found in schema (available: {})", col, schema_names.join(", ")));
+        }
+    }
     let total_rgs = meta.num_row_groups();
     let mut skipped_rgs = 0usize;
     let mut rgs_to_scan: Vec<usize> = Vec::new();
