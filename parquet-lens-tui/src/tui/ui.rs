@@ -480,10 +480,14 @@ fn render_data_preview(frame: &mut Frame, app: &App, area: Rect) {
         frame.render_widget(Paragraph::new("Data preview not loaded.").block(Block::default().borders(Borders::ALL).title("Data Preview (D)")), area);
         return;
     }
-    let vis_cols: Vec<&str> = app.preview_headers.iter().skip(app.preview_scroll_x).take(8).map(|h| h.as_str()).collect();
+    let max_x = app.preview_headers.len().saturating_sub(1);
+    let max_y = app.preview_rows.len().saturating_sub(1);
+    let scroll_x = app.preview_scroll_x.min(max_x);
+    let scroll_y = app.preview_scroll_y.min(max_y);
+    let vis_cols: Vec<&str> = app.preview_headers.iter().skip(scroll_x).take(8).map(|h| h.as_str()).collect();
     let header = Row::new(vis_cols.iter().map(|h| Cell::from(*h).style(Style::default().add_modifier(Modifier::BOLD))));
-    let rows: Vec<Row> = app.preview_rows.iter().skip(app.preview_scroll_y).take(area.height.saturating_sub(4) as usize).map(|row| {
-        Row::new(row.iter().skip(app.preview_scroll_x).take(8).map(|v| Cell::from(truncate(v, 15))))
+    let rows: Vec<Row> = app.preview_rows.iter().skip(scroll_y).take(area.height.saturating_sub(4) as usize).map(|row| {
+        Row::new(row.iter().skip(scroll_x).take(8).map(|v| Cell::from(truncate(v, 15))))
     }).collect();
     let widths: Vec<Constraint> = vis_cols.iter().map(|_| Constraint::Min(16)).collect();
     frame.render_widget(Table::new(rows, widths).header(header).block(Block::default().borders(Borders::ALL).title("Data Preview (D) — arrows scroll")), area);
