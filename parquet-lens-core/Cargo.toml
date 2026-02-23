@@ -15,3 +15,6 @@ memmap2 = { workspace = true }
 bytes = { workspace = true }
 glob = { workspace = true }
 rayon = { workspace = true }
+hyperloglog = { workspace = true }
+tdigest = { workspace = true }
+regex = { workspace = true }
