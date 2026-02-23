@@ -83,7 +83,7 @@ pub async fn resolve_paths(input: &str) -> Result<Vec<ParquetFilePath>> {
         }]);
     }
     if path.is_dir() {
-        return scan_directory(path).map_err(|e| e);
+        return scan_directory(path);
     }
     // glob pattern
     let mut results = Vec::new();

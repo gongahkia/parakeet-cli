@@ -128,7 +128,7 @@ pub fn profile_columns_with_timeout(
     let mut timed_out = false;
     let mut reader = reader.peekable();
 
-    while let Some(batch_result) = reader.next() {
+    for batch_result in &mut reader {
         if let Some(dl) = deadline {
             if std::time::Instant::now() >= dl {
                 timed_out = true;
