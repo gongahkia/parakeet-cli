@@ -1,7 +1,3 @@
-(B) Add `summary` subcommand headless output: print dataset profile as formatted table to stdout (file count, row count, columns, size, quality score, top issues), parseable with column alignment +cli
-(B) Implement JSON export: `export --format json` writes full profile (schema, per-column stats, quality scores, row group profiles, issues) to structured JSON file +export
-(B) Implement CSV export: `export --format csv` writes per-column statistics as CSV rows (column_name, type, null_rate, cardinality, min, max, mean, quality_score) +export
-(B) Add `--columns <col1,col2,...>` flag to full-scan mode: only profile specified columns instead of all, reduces scan time for wide tables (100+ columns) +cli
 (B) Implement color theme support: `[display].theme` in config with "dark" (default), "light", "nord", "catppuccin" palettes applied to all TUI widgets +tui
 (B) Add bookmark columns: keybinding `b` on selected column adds to bookmarks, `B` shows bookmarked columns only in sidebar — useful for focusing on columns of interest in wide schemas +tui
 (B) Implement TUI session state persistence: save last viewed file, selected column, active view, profiling mode to `~/.cache/parquet-lens/session.json`, restore on relaunch with same file +tui
