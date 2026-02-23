@@ -71,6 +71,7 @@ enum Commands {
         #[arg(long)] watch: bool,
         #[arg(long)] no_sample_extrapolation: bool,
         #[arg(long)] save_baseline: bool,
+        #[arg(long)] sample_seed: Option<u64>,
     },
     Summary {
         path: String,
@@ -92,9 +93,9 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     let config = Config::load().unwrap_or_default();
     match cli.command {
-        Commands::Inspect { path, sample, watch, no_sample_extrapolation, save_baseline } => {
+        Commands::Inspect { path, sample, watch, no_sample_extrapolation, save_baseline, sample_seed } => {
             if watch { eprintln!("--watch: not yet implemented"); }
-            run_tui(path, config, sample, no_sample_extrapolation, save_baseline)?
+            run_tui(path, config, sample, no_sample_extrapolation, save_baseline, sample_seed)?
         }
         Commands::Summary { path, save, format } => run_summary(path, save, &format, &config)?,
         Commands::Compare { path1, path2 } => run_compare(path1, path2, config)?,
@@ -113,7 +114,7 @@ fn run_duplicates(input_path: String) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn run_tui(input_path: String, config: Config, sample_pct: Option<f64>, no_sample_extrapolation: bool, save_baseline: bool) -> anyhow::Result<()> {
+fn run_tui(input_path: String, config: Config, sample_pct: Option<f64>, no_sample_extrapolation: bool, save_baseline: bool, sample_seed: Option<u64>) -> anyhow::Result<()> {
     let paths = rp(&input_path)?;
     if paths.is_empty() { anyhow::bail!("No Parquet files found: {input_path}"); }
     let dataset = read_metadata_parallel(&paths).map_err(|e| anyhow::anyhow!("{e}"))?;
@@ -209,7 +210,7 @@ fn run_tui(input_path: String, config: Config, sample_pct: Option<f64>, no_sampl
     app.partition_infos = analyze_partitions(&paths);
 
     if let Some(pct) = sample_pct {
-        let cfg = SampleConfig { percentage: pct, no_extrapolation: no_sample_extrapolation };
+        let cfg = SampleConfig { percentage: pct, no_extrapolation: no_sample_extrapolation, seed: sample_seed };
         match sample_row_groups(&paths[0].path, &cfg, 20) {
             Ok(sp) => {
                 app.agg_stats = sp.agg_stats;

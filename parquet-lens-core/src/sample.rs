@@ -8,6 +8,7 @@ use crate::{read_column_stats, aggregate_column_stats, profile_row_groups};
 pub struct SampleConfig {
     pub percentage: f64, // 0.0–100.0
     pub no_extrapolation: bool, // when true, skip confidence extrapolation
+    pub seed: Option<u64>, // deterministic rg selection seed; None uses default (seed=0)
 }
 
 pub struct SampledProfile {
@@ -28,9 +29,10 @@ pub fn sample_row_groups(path: &Path, config: &SampleConfig, histogram_bins: usi
     if total == 0 { return Err(ParquetLensError::Io(std::io::Error::new(std::io::ErrorKind::InvalidData, "no row groups in file"))); }
     let n = ((config.percentage / 100.0) * total as f64).ceil() as usize;
     let n = n.clamp(1, total);
-    // deterministic pseudo-random selection via multiplicative hash
+    // deterministic pseudo-random selection: XOR index with seed then knuth hash
+    let seed = config.seed.unwrap_or(0);
     let mut indices: Vec<usize> = (0..total).collect();
-    indices.sort_by_key(|&i| (i as u64).wrapping_mul(2654435761)); // knuth multiplicative hash
+    indices.sort_by_key(|&i| (i as u64 ^ seed).wrapping_mul(2654435761)); // knuth multiplicative hash
     let selected: Vec<usize> = indices[..n].iter().cloned().collect();
 
     // profile only selected row groups
