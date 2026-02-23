@@ -1,5 +1,3 @@
-(B) In `parquet-lens-tui/src/tui/events.rs`, add `KeyCode::Char('H')` and `KeyCode::Char('L')` (vim-style) as aliases for `Left`/`Right` in `handle_main` for consistent vim navigation +dx
-(B) In `parquet-lens-tui/src/tui/events.rs`, add `KeyCode::PageDown` and `KeyCode::PageUp` to `handle_sidebar` to jump 10 rows at a time in the column sidebar +dx
 (B) Add `--format pretty` option to `summary` subcommand in `parquet-lens-tui/src/main.rs` (alongside existing plain output) that uses colored terminal output via ANSI escapes +dx
 (B) In `parquet-lens-core/src/timeseries.rs`, handle the case where the timestamp column contains all-null values gracefully (currently may produce NaN min/max) — return a `TimeSeriesProfile` with `has_data: false` sentinel instead +stability
 (B) Add a `'?'` overlay in TUI that shows a scrollable keybind reference table with all current keybinds (not just a static text block) using ratatui `Table` widget with `scroll_offset` state in `App` +dx
