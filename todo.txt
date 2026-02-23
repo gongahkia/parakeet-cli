@@ -1,8 +1,3 @@
-(B) Add S3 URI detection in `parquet-lens-core/src/scanner.rs` `resolve_paths` function: if input starts with `s3://`, call `list_s3_parquet` instead of local glob resolution +feature +s3
-(B) Add GCS URI detection in `parquet-lens-core/src/scanner.rs` `resolve_paths` function: if input starts with `gs://`, call `list_gcs_parquet` instead of local glob resolution +feature +gcs
-(B) Make `resolve_paths` in `parquet-lens-core/src/scanner.rs` async (add `async` keyword) since S3/GCS listing requires async I/O; update all callers in `parquet-lens-tui/src/main.rs` to `.await` +refactor +s3 +gcs
-(B) In `parquet-lens-tui/src/main.rs` `run_tui`, handle S3 path: after `resolve_paths`, if path is S3, call `read_s3_parquet_metadata` for the first file instead of `open_parquet_file` +feature +s3
-(B) In `parquet-lens-tui/src/main.rs` `run_tui`, handle GCS path: after `resolve_paths`, if path is GCS, call `read_gcs_parquet_metadata` for the first file instead of `open_parquet_file` +feature +gcs
 (B) Add `--output <path>` arg to `Export` subcommand in `Commands` enum in `parquet-lens-tui/src/main.rs`: `#[arg(long)] output: Option<String>` +feature +export
 (B) In `run_export` in `parquet-lens-tui/src/main.rs`, resolve output path by: using `--output` if provided, else `config.export.output_dir` joined with default filename (`profile.json`/`profile.csv`), instead of always hardcoding current dir +feature +export
 (B) Load `Config` in `run_export` in `parquet-lens-tui/src/main.rs` (currently `config` is not passed to `run_export`); pass it as a parameter from `main` +refactor +export
