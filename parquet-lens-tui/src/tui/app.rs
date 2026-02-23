@@ -56,6 +56,7 @@ pub struct App {
     pub filter_input: String,
     pub filter_active: bool,
     pub filter_result: Option<FilterResult>,
+    pub sample_note: Option<String>,
 }
 
 impl App {
@@ -78,6 +79,7 @@ impl App {
             sidebar_sort: SidebarSort::Name, sidebar_sort_asc: true,
             bookmarks: Vec::new(), show_bookmarks_only: false,
             filter_input: String::new(), filter_active: false, filter_result: None,
+            sample_note: None,
         }
     }
     pub fn columns(&self) -> &[ColumnSchema] {

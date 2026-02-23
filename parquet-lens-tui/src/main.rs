@@ -17,6 +17,7 @@ use parquet_lens_core::{
     profile_row_groups, read_column_stats, aggregate_column_stats,
     analyze_encodings, analyze_compression, score_column,
     summarize_quality, print_summary, export_json, export_csv,
+    sample_row_groups, SampleConfig,
 };
 use parquet_lens_common::Config;
 
@@ -29,7 +30,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    Inspect { path: String },
+    Inspect { path: String, #[arg(long)] sample: Option<f64> },
     Summary { path: String },
     Compare { path1: String, path2: String },
     Export {
@@ -44,7 +45,7 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     let config = Config::load().unwrap_or_default();
     match cli.command {
-        Commands::Inspect { path } => run_tui(path, config)?,
+        Commands::Inspect { path, sample } => run_tui(path, config, sample)?,
         Commands::Summary { path } => run_summary(path)?,
         Commands::Compare { path1, path2 } => println!("compare: {path1} vs {path2}"),
         Commands::Export { path, format, columns } => run_export(path, format, columns)?,
@@ -52,7 +53,7 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn run_tui(input_path: String, config: Config) -> anyhow::Result<()> {
+fn run_tui(input_path: String, config: Config, sample_pct: Option<f64>) -> anyhow::Result<()> {
     let paths = resolve_paths(&input_path).map_err(|e| anyhow::anyhow!("{e}"))?;
     if paths.is_empty() { anyhow::bail!("No Parquet files found: {input_path}"); }
     let dataset = read_metadata_parallel(&paths).map_err(|e| anyhow::anyhow!("{e}"))?;
@@ -77,7 +78,23 @@ fn run_tui(input_path: String, config: Config) -> anyhow::Result<()> {
     app.encoding_analysis = encoding_analysis;
     app.compression_analysis = compression_analysis;
     app.quality_scores = quality_scores;
-    app.status_msg = "Ready — q:quit ?:help".into();
+    if let Some(pct) = sample_pct {
+        let pct = pct.clamp(1.0, 100.0);
+        let sp_path = paths[0].path.to_string_lossy().to_string();
+        let cfg = SampleConfig { percentage: pct };
+        match sample_row_groups(std::path::Path::new(&sp_path), &cfg, 20) {
+            Ok(sp) => {
+                app.agg_stats = sp.agg_stats;
+                app.row_groups = sp.row_groups;
+                app.full_scan_results = sp.profile_results;
+                app.sample_note = Some(sp.confidence_note.clone());
+                app.status_msg = format!("Sampled — {} | q:quit ?:help", sp.confidence_note);
+            }
+            Err(e) => { app.status_msg = format!("Sample error: {e}"); }
+        }
+    } else {
+        app.status_msg = "Ready — q:quit ?:help".into();
+    }
 
     enable_raw_mode()?;
     let mut stdout = io::stdout();

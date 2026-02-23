@@ -29,3 +29,5 @@ pub use recommendations::{EncodingRecommendation, CompressionRecommendation, rec
 pub use export::{print_summary, export_json, export_csv};
 pub mod filter;
 pub use filter::{Predicate, FilterResult, parse_predicate, filter_count};
+pub mod sample;
+pub use sample::{SampleConfig, SampledProfile, sample_row_groups};
