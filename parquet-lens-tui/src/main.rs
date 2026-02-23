@@ -28,6 +28,11 @@ use parquet_lens_core::{
 };
 use parquet::file::metadata::ParquetMetaData;
 
+fn parse_sample_pct(s: &str) -> Result<f64, String> { // validate sample % at CLI parse time
+    let v: f64 = s.parse().map_err(|_| format!("not a float: {s}"))?;
+    if v > 0.0 && v <= 100.0 { Ok(v) } else { Err(format!("sample must be in (0.0, 100.0], got {v}")) }
+}
+
 /// block_in_place wrapper to call async resolve_paths from sync context
 fn rp(input: &str) -> anyhow::Result<Vec<ParquetFilePath>> {
     tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(resolve_paths(input)))
@@ -58,7 +63,12 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    Inspect { path: String, #[arg(long)] sample: Option<f64>, #[arg(long)] watch: bool },
+    Inspect {
+        path: String,
+        #[arg(long, value_parser = parse_sample_pct)]
+        sample: Option<f64>,
+        #[arg(long)] watch: bool,
+    },
     Summary { path: String },
     Compare { path1: String, path2: String },
     Export {
@@ -180,7 +190,6 @@ fn run_tui(input_path: String, config: Config, sample_pct: Option<f64>) -> anyho
     app.null_patterns = analyze_null_patterns(&app.agg_stats);
 
     if let Some(pct) = sample_pct {
-        let pct = pct.clamp(1.0, 100.0);
         let cfg = SampleConfig { percentage: pct };
         match sample_row_groups(&paths[0].path, &cfg, 20) {
             Ok(sp) => {
