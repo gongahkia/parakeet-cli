@@ -1,6 +1,3 @@
-(C) Implement Parquet file repair suggestions: detect common issues (too many small row groups → suggest compaction, dictionary pages >1MB → suggest disabling dictionary, excessive null columns → suggest dropping), output as actionable recommendations list +quality
-(C) Implement time-series aware profiling: detect timestamp columns, compute time gaps, identify missing intervals, check monotonicity, report temporal coverage — useful for event data +profile
-(C) Implement nested type profiling: for columns with nested schemas (LIST, MAP, STRUCT), expand and profile child fields, show nesting depth and array length distribution +profile
 (C) Implement diff against baseline: save a profile as baseline JSON, on next run compare current profile against baseline, flag regressions (quality score drops, new nulls, schema changes) +compare
 (C) Add Parquet file creation metadata display: parse `created_by` field to identify writing engine (Spark, PyArrow, DuckDB, Impala), show engine-specific optimization hints +stats
 (C) Implement cross-column null pattern analysis: detect columns that are always null together (null correlation), suggest they may be from same optional source/join — display as grouped null pattern in quality view +quality
