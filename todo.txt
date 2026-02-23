@@ -1,5 +1,3 @@
-(B) In `parquet-lens-core/src/timeseries.rs`, handle the case where the timestamp column contains all-null values gracefully (currently may produce NaN min/max) — return a `TimeSeriesProfile` with `has_data: false` sentinel instead +stability
-(B) Add a `'?'` overlay in TUI that shows a scrollable keybind reference table with all current keybinds (not just a static text block) using ratatui `Table` widget with `scroll_offset` state in `App` +dx
 (B) Add `'I'` keybind in TUI sidebar to toggle showing only columns with null rate above a threshold (e.g., >5%) as a quick null-hot-spot filter +feature +dx
 (B) Expose `PartitionInfo` from `stats_ext.rs` in a `View::Partitions` TUI view accessible via `'Q'` keybind, showing partition columns, values, and file counts +feature
 (B) In `parquet-lens-core/src/sample.rs`, add `seed: Option<u64>` to `SampleConfig` for reproducible sampling (use seed to select deterministic row group indices instead of always taking the first N) +feature +stability
