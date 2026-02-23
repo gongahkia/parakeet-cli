@@ -203,7 +203,17 @@ impl App {
             _ => "overview",
         };
         let mode = match self.profiling_mode { ProfilingMode::Metadata => "metadata", ProfilingMode::FullScan => "full_scan" };
-        Session { input_path: self.input_path.clone(), sidebar_selected: self.sidebar_selected, view: view.into(), profiling_mode: mode.into() }
+        let sort_str = match self.sidebar_sort {
+            SidebarSort::Name => "name", SidebarSort::NullRate => "null_rate",
+            SidebarSort::Cardinality => "cardinality", SidebarSort::Size => "size",
+            SidebarSort::Quality => "quality",
+        };
+        Session {
+            input_path: self.input_path.clone(), sidebar_selected: self.sidebar_selected,
+            view: view.into(), profiling_mode: mode.into(),
+            bookmarks: self.bookmarks.clone(), sidebar_sort: sort_str.into(),
+            sidebar_sort_asc: self.sidebar_sort_asc, show_bookmarks_only: self.show_bookmarks_only,
+        }
     }
 
     pub fn restore_from_session(&mut self, s: &Session) {
@@ -227,6 +237,13 @@ impl App {
             _ => View::FileOverview,
         };
         self.profiling_mode = if s.profiling_mode == "full_scan" { ProfilingMode::FullScan } else { ProfilingMode::Metadata };
+        self.bookmarks = s.bookmarks.clone();
+        self.sidebar_sort = match s.sidebar_sort.as_str() {
+            "null_rate" => SidebarSort::NullRate, "cardinality" => SidebarSort::Cardinality,
+            "size" => SidebarSort::Size, "quality" => SidebarSort::Quality, _ => SidebarSort::Name,
+        };
+        self.sidebar_sort_asc = s.sidebar_sort_asc;
+        self.show_bookmarks_only = s.show_bookmarks_only;
     }
 
     pub fn cycle_profiling_mode(&mut self) {

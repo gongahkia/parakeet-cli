@@ -7,7 +7,17 @@ pub struct Session {
     pub sidebar_selected: usize,
     pub view: String,        // serialized view name
     pub profiling_mode: String,
+    #[serde(default)]
+    pub bookmarks: Vec<String>,
+    #[serde(default)]
+    pub sidebar_sort: String,
+    #[serde(default = "default_true")]
+    pub sidebar_sort_asc: bool,
+    #[serde(default)]
+    pub show_bookmarks_only: bool,
 }
+
+fn default_true() -> bool { true }
 
 impl Session {
     pub fn cache_path() -> PathBuf {
