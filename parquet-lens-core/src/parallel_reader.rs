@@ -13,6 +13,7 @@ pub struct DatasetProfile {
     pub total_bytes: u64,
     pub files: Vec<FileProfile>,
     pub combined_schema: Vec<ColumnSchema>,
+    pub schema_inconsistencies: Vec<String>, // per-file schema mismatches vs first file
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,11 +61,41 @@ pub fn read_metadata_parallel(paths: &[ParquetFilePath]) -> Result<DatasetProfil
         Vec::new()
     };
 
+    // check schema consistency across all files vs first file
+    let mut schema_inconsistencies = Vec::new();
+    if paths.len() > 1 {
+        let ref_col_names: Vec<&str> = combined_schema.iter().map(|c| c.name.as_str()).collect();
+        for pf in &paths[1..] {
+            if let Ok(other_schema) = extract_schema(&pf.path) {
+                let other_names: Vec<&str> = other_schema.iter().map(|c| c.name.as_str()).collect();
+                for &name in &ref_col_names {
+                    if !other_names.contains(&name) {
+                        schema_inconsistencies.push(format!("{}: missing column '{}'", pf.path.display(), name));
+                    }
+                }
+                for &name in &other_names {
+                    if !ref_col_names.contains(&name) {
+                        schema_inconsistencies.push(format!("{}: extra column '{}'", pf.path.display(), name));
+                    }
+                }
+                // type mismatches
+                for col in &combined_schema {
+                    if let Some(other_col) = other_schema.iter().find(|c| c.name == col.name) {
+                        if other_col.physical_type != col.physical_type {
+                            schema_inconsistencies.push(format!("{}: column '{}' type {} vs {}", pf.path.display(), col.name, col.physical_type, other_col.physical_type));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     Ok(DatasetProfile {
         file_count: files.len(),
         total_rows,
         total_bytes,
         files,
         combined_schema,
+        schema_inconsistencies,
     })
 }
