@@ -175,7 +175,7 @@ fn median_f64(sorted: &[f64]) -> f64 {
     if n == 0 {
         return 0.0;
     }
-    if n % 2 == 0 {
+    if n.is_multiple_of(2) {
         (sorted[n / 2 - 1] + sorted[n / 2]) / 2.0
     } else {
         sorted[n / 2]
@@ -265,7 +265,7 @@ pub fn analyze_encodings(meta: &ParquetMetaData) -> Vec<EncodingAnalysis> {
         .map(|(name, mut encs)| {
             encs.sort();
             encs.dedup();
-            let is_plain_only = encs
+            let _is_plain_only = encs
                 .iter()
                 .all(|e| e == "PLAIN" || e == "RLE_DICTIONARY" || e == "BIT_PACKED");
             let is_plain_only = encs == vec!["PLAIN".to_string()];

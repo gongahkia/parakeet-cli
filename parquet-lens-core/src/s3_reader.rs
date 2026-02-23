@@ -2,8 +2,6 @@ use bytes::Bytes;
 use parquet::file::metadata::ParquetMetaData;
 use parquet::file::reader::{FileReader, SerializedFileReader};
 use parquet_lens_common::{ParquetLensError, Result};
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// parsed s3:// URI
 #[derive(Debug, Clone)]
@@ -29,7 +27,7 @@ pub fn is_s3_uri(path: &str) -> bool {
 pub async fn list_s3_parquet(uri: &str) -> Result<Vec<String>> {
     let s3_uri = parse_s3_uri(uri)
         .ok_or_else(|| ParquetLensError::Other(format!("invalid S3 URI: {uri}")))?;
-    let config = aws_config::load_from_env().await;
+    let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
     let client = aws_sdk_s3::Client::new(&config);
     let mut keys = Vec::new();
     let mut paginator = client
@@ -65,7 +63,7 @@ pub async fn read_s3_parquet_metadata(
 async fn fetch_s3_bytes(uri: &str, endpoint_url: Option<&str>) -> Result<Bytes> {
     let s3_uri = parse_s3_uri(uri)
         .ok_or_else(|| ParquetLensError::Other(format!("invalid S3 URI: {uri}")))?;
-    let mut config_loader = aws_config::load_from_env().await;
+    let config_loader = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
     let mut builder = aws_sdk_s3::config::Builder::from(&config_loader);
     if let Some(ep) = endpoint_url {
         builder = builder.endpoint_url(ep);
@@ -107,7 +105,7 @@ pub async fn read_s3_range(
 ) -> Result<Bytes> {
     let s3_uri = parse_s3_uri(uri)
         .ok_or_else(|| ParquetLensError::Other(format!("invalid S3 URI: {uri}")))?;
-    let config = aws_config::load_from_env().await;
+    let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
     let mut builder = aws_sdk_s3::config::Builder::from(&config);
     if let Some(ep) = endpoint_url {
         builder = builder.endpoint_url(ep);

@@ -53,3 +53,7 @@ impl FrequencyCounter {
         }
     }
 }
+
+impl Default for FrequencyCounter {
+    fn default() -> Self { Self::new() }
+}

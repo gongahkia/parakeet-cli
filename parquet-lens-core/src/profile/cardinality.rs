@@ -28,3 +28,7 @@ impl HllEstimator {
         }
     }
 }
+
+impl Default for HllEstimator {
+    fn default() -> Self { Self::new() }
+}

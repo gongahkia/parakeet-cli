@@ -46,7 +46,6 @@ pub fn profile_timeseries(
             }
             let col_meta = rg.column(col_idx);
             if let Some(stats) = col_meta.statistics() {
-                use parquet::data_type::AsBytes;
                 let min_bytes = stats.min_bytes_opt();
                 let max_bytes = stats.max_bytes_opt();
                 if let (Some(mn), Some(mx)) = (min_bytes, max_bytes) {
