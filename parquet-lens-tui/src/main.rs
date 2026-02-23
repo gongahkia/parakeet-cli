@@ -58,7 +58,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    Inspect { path: String, #[arg(long)] sample: Option<f64> },
+    Inspect { path: String, #[arg(long)] sample: Option<f64>, #[arg(long)] watch: bool },
     Summary { path: String },
     Compare { path1: String, path2: String },
     Export {
@@ -75,7 +75,10 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     let config = Config::load().unwrap_or_default();
     match cli.command {
-        Commands::Inspect { path, sample } => run_tui(path, config, sample)?,
+        Commands::Inspect { path, sample, watch } => {
+            if watch { eprintln!("--watch: not yet implemented"); }
+            run_tui(path, config, sample)?
+        }
         Commands::Summary { path } => run_summary(path)?,
         Commands::Compare { path1, path2 } => run_compare(path1, path2, config)?,
         Commands::Export { path, format, columns, output } => run_export(path, format, columns, output, config)?,
