@@ -1,4 +1,3 @@
-(B) Add `summary` subcommand to session persistence: write summary output to a JSON file at `config.export.output_dir/summary.json` when `--save` flag is passed to `summary` subcommand +feature
 (B) In `parquet-lens-tui/src/tui/ui.rs`, clamp `preview_scroll_x` and `preview_scroll_y` to valid bounds when rendering `View::DataPreview` to prevent out-of-bounds access on the preview_rows/headers vectors +stability
 (B) Add `'E'` keybind in TUI sidebar (`handle_sidebar` in `parquet-lens-tui/src/tui/events.rs`) to trigger export of current profile to JSON in the background, outputting to `config.export.output_dir` without leaving TUI +feature +export
 (B) In `parquet-lens-core/src/export.rs` `export_csv`, add header row for quality score breakdown column (currently `breakdown` field may contain commas that break CSV parsing) — escape commas in `breakdown` with `"..."` quoting +stability +export
