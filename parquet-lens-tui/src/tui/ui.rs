@@ -44,21 +44,26 @@ fn render_topbar(frame: &mut Frame, app: &App, area: Rect) {
 
 fn render_sidebar(frame: &mut Frame, app: &App, area: Rect) {
     let focused = app.focus == Focus::Sidebar;
-    let block = Block::default().borders(Borders::ALL).title("Columns")
+    let search_suffix = if app.sidebar_searching { format!("/{}_", app.sidebar_search) } else if !app.sidebar_search.is_empty() { format!("/{}", app.sidebar_search) } else { String::new() };
+    let bmark_flag = if app.show_bookmarks_only { " [★]" } else { "" };
+    let title = format!("Columns{bmark_flag}{search_suffix}");
+    let block = Block::default().borders(Borders::ALL).title(title)
         .border_style(if focused { Style::default().fg(Color::Yellow) } else { Style::default() });
-    let items: Vec<ListItem> = app.columns().iter().map(|col| {
+    let cols = app.columns();
+    let indices = app.filtered_column_indices();
+    let items: Vec<ListItem> = indices.iter().map(|&i| {
+        let col = &cols[i];
         let icon = type_icon(&col.physical_type);
-        let null_pct = app.agg_stats.iter().find(|s| s.column_name == col.name).map(|s| s.null_percentage).unwrap_or(0.0);
         let quality = app.quality_scores.iter().find(|s| s.column_name == col.name).map(|s| s.score).unwrap_or(100);
         let qcolor = if quality >= 80 { Color::Green } else if quality >= 50 { Color::Yellow } else { Color::Red };
-        let _ = null_pct; // used for potential future heatmap coloring
+        let bmark = if app.bookmarks.contains(&col.name) { "★" } else { " " };
         ListItem::new(Line::from(vec![
-            Span::raw(format!("{icon} {:<18}", truncate(&col.name, 18))),
+            Span::raw(format!("{bmark}{icon} {:<16}", truncate(&col.name, 16))),
             Span::styled(format!("{:3}%", quality), Style::default().fg(qcolor)),
         ]))
     }).collect();
     let mut state = ListState::default();
-    if !items.is_empty() { state.select(Some(app.sidebar_selected)); }
+    if !items.is_empty() { state.select(Some(app.sidebar_selected.min(items.len().saturating_sub(1)))); }
     let list = List::new(items).block(block).highlight_style(Style::default().add_modifier(Modifier::REVERSED));
     frame.render_stateful_widget(list, area, &mut state);
 }
@@ -72,7 +77,40 @@ fn render_main(frame: &mut Frame, app: &App, area: Rect) {
         View::NullHeatmap => render_null_heatmap(frame, app, area),
         View::DataPreview => render_data_preview(frame, app, area),
         View::Compare => render_compare(frame, app, area),
+        View::ColumnSizeBreakdown => render_col_size_breakdown(frame, app, area),
+        View::FileList => render_file_list(frame, app, area),
     }
+}
+
+fn render_col_size_breakdown(frame: &mut Frame, app: &App, area: Rect) {
+    let mut cols: Vec<(&str, i64)> = app.agg_stats.iter().map(|s| (s.column_name.as_str(), s.total_compressed_size)).collect();
+    cols.sort_by(|a, b| b.1.cmp(&a.1));
+    let max_size = cols.first().map(|(_, s)| *s).unwrap_or(1).max(1);
+    let bar_width = (area.width as usize).saturating_sub(30).max(10);
+    let lines: Vec<Line> = cols.iter().map(|(name, size)| {
+        let blen = (*size as f64 / max_size as f64 * bar_width as f64) as usize;
+        Line::from(format!("{:<20} |{:<bw$}| {}", truncate(name, 20), "█".repeat(blen), fmt_bytes(*size as u64), bw=bar_width))
+    }).collect();
+    frame.render_widget(Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title("Column Size Breakdown (Z) — sorted by compressed size")), area);
+}
+
+fn render_file_list(frame: &mut Frame, app: &App, area: Rect) {
+    let Some(ds) = &app.dataset else {
+        frame.render_widget(Paragraph::new("No dataset loaded.").block(Block::default().borders(Borders::ALL).title("File List (F)")), area);
+        return;
+    };
+    let header = Row::new(["Path","Rows","Size","RowGroups"].map(|h| Cell::from(h).style(Style::default().add_modifier(Modifier::BOLD))));
+    let rows: Vec<Row> = ds.files.iter().map(|f| {
+        Row::new([
+            truncate(f.path.to_str().unwrap_or(""), 40),
+            f.row_count.to_string(),
+            fmt_bytes(f.file_size),
+            f.row_group_count.to_string(),
+        ])
+    }).collect();
+    let table = Table::new(rows, [Constraint::Min(40), Constraint::Length(10), Constraint::Length(10), Constraint::Length(10)])
+        .header(header).block(Block::default().borders(Borders::ALL).title("File List (F)"));
+    frame.render_widget(table, area);
 }
 
 fn render_compare(frame: &mut Frame, app: &App, area: Rect) {

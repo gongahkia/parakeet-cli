@@ -1,5 +1,5 @@
 use crossterm::event::{KeyCode, KeyEvent};
-use crate::tui::app::{App, Focus, ProfilingMode, View};
+use crate::tui::app::{App, Focus, ProfilingMode, SidebarSort, View};
 
 pub fn handle_key(app: &mut App, key: KeyEvent) {
     match key.code {
@@ -20,12 +20,23 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
 }
 
 fn handle_sidebar(app: &mut App, key: KeyEvent) {
+    // search mode intercepts printable chars
+    if app.sidebar_searching {
+        match key.code {
+            KeyCode::Esc | KeyCode::Enter => { app.sidebar_searching = false; }
+            KeyCode::Backspace => { app.sidebar_search.pop(); }
+            KeyCode::Char(c) => { app.sidebar_search.push(c); app.sidebar_selected = 0; }
+            _ => {}
+        }
+        return;
+    }
     match key.code {
         KeyCode::Char('j') | KeyCode::Down => app.sidebar_down(),
         KeyCode::Char('k') | KeyCode::Up => app.sidebar_up(),
         KeyCode::Enter => {
-            if app.column_count() > 0 {
-                app.view = View::ColumnDetail(app.sidebar_selected);
+            let indices = app.filtered_column_indices();
+            if let Some(&col_idx) = indices.get(app.sidebar_selected) {
+                app.view = View::ColumnDetail(col_idx);
                 app.focus = Focus::Main;
             }
         }
@@ -33,7 +44,21 @@ fn handle_sidebar(app: &mut App, key: KeyEvent) {
         KeyCode::Char('R') => app.view = View::RowGroups,
         KeyCode::Char('N') => app.view = View::NullHeatmap,
         KeyCode::Char('D') => app.view = View::DataPreview,
-        KeyCode::Esc => app.view = View::FileOverview,
+        KeyCode::Char('Z') => app.view = View::ColumnSizeBreakdown,
+        KeyCode::Char('F') => app.view = View::FileList,
+        KeyCode::Char('/') => { app.sidebar_searching = true; app.sidebar_search.clear(); }
+        KeyCode::Char('o') => {
+            app.sidebar_sort = match app.sidebar_sort {
+                SidebarSort::Name => SidebarSort::NullRate,
+                SidebarSort::NullRate => SidebarSort::Cardinality,
+                SidebarSort::Cardinality => SidebarSort::Size,
+                SidebarSort::Size => SidebarSort::Quality,
+                SidebarSort::Quality => { app.sidebar_sort_asc = !app.sidebar_sort_asc; SidebarSort::Name }
+            };
+        }
+        KeyCode::Char('b') => app.toggle_bookmark(),
+        KeyCode::Char('B') => { app.show_bookmarks_only = !app.show_bookmarks_only; app.sidebar_selected = 0; }
+        KeyCode::Esc => { app.view = View::FileOverview; app.sidebar_search.clear(); app.sidebar_searching = false; }
         _ => {}
     }
 }
