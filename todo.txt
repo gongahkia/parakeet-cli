@@ -1,4 +1,3 @@
-(A) Implement config file at `~/.config/parquet-lens/config.toml` with sections: `[display]` (theme, max_rows_preview), `[profiling]` (default_mode, sample_size, histogram_bins), `[s3]` (region, profile, endpoint_url), `[export]` (format, output_dir) +cli
 (A) Implement single Parquet file opener: memory-map file using `memmap2` crate, parse Parquet footer to extract FileMetaData (schema, row groups, key-value metadata, created_by), return structured ParquetFileInfo +reader
 (A) Implement directory scanner: accept path, recursively discover all `.parquet` files, detect Hive-style partitioning (parse `col=val/` directory segments), return Vec<ParquetFilePath> with partition key-value pairs +reader
 (A) Implement parallel metadata reader: given Vec of Parquet file paths, read footer metadata from each file concurrently using `rayon` thread pool, aggregate into DatasetProfile struct containing total row count, file count, total bytes, combined schema +reader

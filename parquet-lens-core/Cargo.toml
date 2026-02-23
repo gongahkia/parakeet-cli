@@ -11,3 +11,5 @@ anyhow = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true }
 tokio = { workspace = true }
+memmap2 = { workspace = true }
+bytes = { workspace = true }
