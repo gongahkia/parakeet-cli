@@ -257,8 +257,23 @@ fn run_tui(input_path: String, config: Config, sample_pct: Option<f64>, no_sampl
         } else { false };
         if scan_done { app.progress_rx = None; }
         if event::poll(tick)? {
-            if let Event::Key(key) = event::read()? {
-                handle_key(&mut app, key);
+            match event::read()? {
+                Event::Key(key) => { handle_key(&mut app, key); }
+                Event::Mouse(mouse) => {
+                    use crossterm::event::{MouseEvent, MouseEventKind};
+                    match mouse.kind {
+                        MouseEventKind::ScrollDown => {
+                            if app.focus == tui::app::Focus::Sidebar { app.sidebar_down(); }
+                            else if app.preview_scroll_y + 1 < app.preview_rows.len() { app.preview_scroll_y += 1; }
+                        }
+                        MouseEventKind::ScrollUp => {
+                            if app.focus == tui::app::Focus::Sidebar { app.sidebar_up(); }
+                            else if app.preview_scroll_y > 0 { app.preview_scroll_y -= 1; }
+                        }
+                        _ => {}
+                    }
+                }
+                _ => {}
             }
         }
         if app.should_quit { break; }
