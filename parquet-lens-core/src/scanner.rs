@@ -48,8 +48,21 @@ fn scan_recursive(base: &Path, dir: &Path, out: &mut Vec<ParquetFilePath>) -> Re
     Ok(())
 }
 
-/// resolve a path string: single file, directory, or glob pattern
-pub fn resolve_paths(input: &str) -> Result<Vec<ParquetFilePath>> {
+/// resolve a path string: single file, directory, glob pattern, or S3/GCS URI (async)
+pub async fn resolve_paths(input: &str) -> Result<Vec<ParquetFilePath>> {
+    use crate::s3_reader::{is_s3_uri, list_s3_parquet};
+    use crate::gcs_reader::{is_gcs_uri, list_gcs_parquet};
+    // S3 URI detection
+    if is_s3_uri(input) {
+        let keys = list_s3_parquet(input).await?;
+        return Ok(keys.into_iter().map(|k| ParquetFilePath { path: PathBuf::from(k), partitions: HashMap::new() }).collect());
+    }
+    // GCS URI detection
+    if is_gcs_uri(input) {
+        let keys = list_gcs_parquet(input).await?;
+        return Ok(keys.into_iter().map(|k| ParquetFilePath { path: PathBuf::from(k), partitions: HashMap::new() }).collect());
+    }
+    // local path resolution (sync ops are fine in async context)
     let path = Path::new(input);
     if path.is_file() {
         return Ok(vec![ParquetFilePath {
@@ -58,7 +71,7 @@ pub fn resolve_paths(input: &str) -> Result<Vec<ParquetFilePath>> {
         }]);
     }
     if path.is_dir() {
-        return scan_directory(path);
+        return scan_directory(path).map_err(|e| e);
     }
     // glob pattern
     let mut results = Vec::new();

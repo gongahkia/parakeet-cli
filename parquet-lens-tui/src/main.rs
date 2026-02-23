@@ -13,7 +13,7 @@ use tui::events::handle_key;
 use tui::session::Session;
 use tui::ui::render;
 use parquet_lens_core::{
-    resolve_paths, read_metadata_parallel, open_parquet_file,
+    resolve_paths, read_metadata_parallel, open_parquet_file, // resolve_paths used in rp() helper
     profile_row_groups, read_column_stats, aggregate_column_stats,
     analyze_encodings, analyze_compression, score_column,
     summarize_quality, print_summary, export_json, export_csv,
@@ -21,7 +21,16 @@ use parquet_lens_core::{
     detect_repair_suggestions, profile_timeseries, profile_nested_columns,
     identify_engine, load_baseline_regressions,
     compare_datasets, profile_columns, detect_duplicates,
+    is_s3_uri, read_s3_parquet_metadata,
+    is_gcs_uri, read_gcs_parquet_metadata,
+    ParquetFilePath,
 };
+
+/// block_in_place wrapper to call async resolve_paths from sync context
+fn rp(input: &str) -> anyhow::Result<Vec<ParquetFilePath>> {
+    tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(resolve_paths(input)))
+        .map_err(|e| anyhow::anyhow!("{e}"))
+}
 use parquet_lens_common::Config;
 
 #[derive(Parser)]
@@ -68,10 +77,34 @@ fn run_duplicates(input_path: String) -> anyhow::Result<()> {
 }
 
 fn run_tui(input_path: String, config: Config, sample_pct: Option<f64>) -> anyhow::Result<()> {
-    let paths = resolve_paths(&input_path).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let paths = rp(&input_path)?;
     if paths.is_empty() { anyhow::bail!("No Parquet files found: {input_path}"); }
     let dataset = read_metadata_parallel(&paths).map_err(|e| anyhow::anyhow!("{e}"))?;
-    let (file_info, meta) = open_parquet_file(&paths[0].path).map_err(|e| anyhow::anyhow!("{e}"))?;
+    // task 18/19: handle S3/GCS metadata via specialized readers
+    let p0_str = paths[0].path.to_string_lossy();
+    let (file_info, meta) = if is_s3_uri(&p0_str) {
+        let meta = tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(
+            read_s3_parquet_metadata(&p0_str, config.s3.endpoint_url.as_deref())
+        )).map_err(|e| anyhow::anyhow!("{e}"))?;
+        let fi = parquet_lens_core::ParquetFileInfo {
+            path: paths[0].path.clone(), file_size: 0, row_count: meta.file_metadata().num_rows(),
+            row_group_count: meta.num_row_groups(), created_by: meta.file_metadata().created_by().map(|s| s.to_owned()),
+            parquet_version: meta.file_metadata().version(), key_value_metadata: Vec::new(), schema_fields: Vec::new(),
+        };
+        (fi, meta)
+    } else if is_gcs_uri(&p0_str) {
+        let meta = tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(
+            read_gcs_parquet_metadata(&p0_str)
+        )).map_err(|e| anyhow::anyhow!("{e}"))?;
+        let fi = parquet_lens_core::ParquetFileInfo {
+            path: paths[0].path.clone(), file_size: 0, row_count: meta.file_metadata().num_rows(),
+            row_group_count: meta.num_row_groups(), created_by: meta.file_metadata().created_by().map(|s| s.to_owned()),
+            parquet_version: meta.file_metadata().version(), key_value_metadata: Vec::new(), schema_fields: Vec::new(),
+        };
+        (fi, meta)
+    } else {
+        open_parquet_file(&paths[0].path).map_err(|e| anyhow::anyhow!("{e}"))?
+    };
     let row_groups = profile_row_groups(&meta);
     let col_stats = read_column_stats(&meta);
     let total_rows = file_info.row_count;
@@ -202,8 +235,8 @@ fn run_compare(path1: String, path2: String, config: Config) -> anyhow::Result<(
     if path2.is_empty() { anyhow::bail!("path2 is empty"); }
     if !std::path::Path::new(&path1).exists() { anyhow::bail!("path1 not found: {path1}"); }
     if !std::path::Path::new(&path2).exists() { anyhow::bail!("path2 not found: {path2}"); }
-    let paths1 = resolve_paths(&path1).map_err(|e| anyhow::anyhow!("{e}"))?;
-    let paths2 = resolve_paths(&path2).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let paths1 = rp(&path1)?;
+    let paths2 = rp(&path2)?;
     if paths1.is_empty() { anyhow::bail!("No Parquet files found: {path1}"); }
     if paths2.is_empty() { anyhow::bail!("No Parquet files found: {path2}"); }
     let dataset1 = read_metadata_parallel(&paths1).map_err(|e| anyhow::anyhow!("{e}"))?;
@@ -253,7 +286,7 @@ fn run_compare(path1: String, path2: String, config: Config) -> anyhow::Result<(
 }
 
 fn run_summary(input_path: String) -> anyhow::Result<()> {
-    let paths = resolve_paths(&input_path).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let paths = rp(&input_path)?;
     if paths.is_empty() { anyhow::bail!("No Parquet files found: {input_path}"); }
     let dataset = read_metadata_parallel(&paths).map_err(|e| anyhow::anyhow!("{e}"))?;
     let (_, meta) = open_parquet_file(&paths[0].path).map_err(|e| anyhow::anyhow!("{e}"))?;
@@ -273,7 +306,7 @@ fn run_summary(input_path: String) -> anyhow::Result<()> {
 }
 
 fn run_export(input_path: String, format: String, _columns: Option<Vec<String>>) -> anyhow::Result<()> {
-    let paths = resolve_paths(&input_path).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let paths = rp(&input_path)?;
     if paths.is_empty() { anyhow::bail!("No Parquet files found: {input_path}"); }
     let dataset = read_metadata_parallel(&paths).map_err(|e| anyhow::anyhow!("{e}"))?;
     let (_, meta) = open_parquet_file(&paths[0].path).map_err(|e| anyhow::anyhow!("{e}"))?;
