@@ -14,4 +14,6 @@ pub use schema_diff::{SchemaInconsistency, InconsistencyKind, check_schema_consi
 pub use stats::{ColumnStats, AggregatedColumnStats, RowGroupProfile, UniformityReport, EncodingAnalysis, CompressionAnalysis, read_column_stats, aggregate_column_stats, profile_row_groups, analyze_uniformity, analyze_encodings, analyze_compression};
 pub use profile::{ColumnProfileResult, CardinalityEstimate, FrequencyResult, NumericProfile, HistogramBin, StringProfile, TemporalProfile, BooleanProfile, profile_columns, build_histogram};
 pub mod quality;
+pub mod s3_reader;
 pub use quality::{QualityScore, DatasetQuality, DuplicateReport, score_column, summarize_quality, detect_duplicates};
+pub use s3_reader::{S3Uri, parse_s3_uri, is_s3_uri, list_s3_parquet, read_s3_parquet_metadata, read_s3_range};

@@ -22,6 +22,9 @@ tdigest = "0.2.3"
 regex = "1"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 bloomfilter = "1"
+aws-sdk-s3 = "1"
+aws-config = "1"
+reqwest = { version = "0.12", features = ["blocking"] }
 ratatui = "0.28"
 crossterm = { version = "0.28", features = ["event-stream"] }
 futures = "0.3"
