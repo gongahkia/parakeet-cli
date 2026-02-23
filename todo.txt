@@ -1,4 +1,3 @@
-(B) In `parquet-lens-core/src/export.rs` `export_csv`, add header row for quality score breakdown column (currently `breakdown` field may contain commas that break CSV parsing) — escape commas in `breakdown` with `"..."` quoting +stability +export
 (B) In `parquet-lens-core/src/recommendations.rs`, add a `recommend_row_group_size` function that suggests row group size adjustments based on current average row group size vs. 128MB target +feature
 (B) Surface `recommend_row_group_size` results in `View::Repair` render in `parquet-lens-tui/src/tui/ui.rs` alongside existing `RepairSuggestion` list +feature
 (B) In `parquet-lens-core/src/stats_ext.rs` `detect_sort_order`, return `SortedOrderInfo` with a `confidence: f64` field (ratio of in-order adjacent pairs) rather than a binary sorted/unsorted flag, for more nuanced display +feature
