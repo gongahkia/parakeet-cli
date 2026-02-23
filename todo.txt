@@ -1,4 +1,3 @@
-(B) Implement GCS path support: parse `gs://bucket/prefix` URIs, use `google-cloud-storage` crate or HTTP API with application default credentials +reader
 (B) Implement comparison mode TUI: `compare` subcommand opens split-pane view, left = dataset A, right = dataset B, synchronized column selection — differences highlighted in yellow +compare
 (B) Implement schema diff in comparison mode: side-by-side schema display, added columns in green, removed in red, type-changed in yellow, matching columns in default color +compare
 (B) Implement statistics diff in comparison mode: for each common column, show delta between stats (null rate change, cardinality change, min/max drift, mean shift), flag significant changes (>10% relative change) in red +compare
