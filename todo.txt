@@ -1,4 +1,3 @@
-(B) Add `--no-sample-extrapolation` flag to `Inspect` subcommand in `parquet-lens-tui/src/main.rs` that, when set, prevents `SampleConfig` from applying confidence extrapolation, showing raw sampled counts +feature
 (B) Export `analyze_null_patterns` result as part of `export_json` output in `parquet-lens-core/src/export.rs` by adding a `null_patterns` field to the JSON object when called from CLI +feature +export
 (B) Add `engine_info` to `export_json` output in `parquet-lens-core/src/export.rs` so exported profiles include write-engine identification +feature +export
 (B) Add `baseline_regressions` to `export_json` output in `parquet-lens-core/src/export.rs` when a baseline exists +feature +export
