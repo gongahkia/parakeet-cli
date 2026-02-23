@@ -89,7 +89,7 @@ impl BaselineProfile {
 }
 
 fn simple_hash(s: &str) -> u64 {
-    s.bytes().fold(0xcbf29ce484222325u64, |acc, b| acc.wrapping_mul(0x100000001b3).wrapping_add(b as u64))
+    xxhash_rust::xxh3::xxh3_64(s.as_bytes())
 }
 
 /// wrapper to load baseline and produce regressions for a given file path
