@@ -1,4 +1,3 @@
-(B) Implement TUI session state persistence: save last viewed file, selected column, active view, profiling mode to `~/.cache/parquet-lens/session.json`, restore on relaunch with same file +tui
 (C) Implement predicate filter mode: keybinding `P` opens filter builder, accept SQL-like WHERE expression (e.g., `age > 30 AND status = 'active'`), re-profile only matching rows using arrow compute kernels +filter
 (C) Implement predicate pushdown using Parquet row group statistics: skip row groups where min/max stats prove no rows can match predicate, report skipped vs scanned row groups +filter
 (C) Implement filter expression parser: parse simple predicates (column op value) with AND/OR/NOT, operators: =, !=, <, >, <=, >=, IS NULL, IS NOT NULL, IN (...), LIKE — using pest or nom parser combinator +filter

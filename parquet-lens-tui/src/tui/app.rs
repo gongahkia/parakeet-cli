@@ -1,3 +1,4 @@
+use crate::tui::session::Session;
 use parquet_lens_core::{
     DatasetProfile, ColumnSchema, ParquetFileInfo, RowGroupProfile,
     AggregatedColumnStats, EncodingAnalysis, CompressionAnalysis,
@@ -143,6 +144,40 @@ impl App {
                 self.bookmarks.push(name);
             }
         }
+    }
+
+    pub fn to_session(&self) -> Session {
+        let view = match &self.view {
+            View::FileOverview => "overview",
+            View::Schema => "schema",
+            View::ColumnDetail(_) => "column_detail",
+            View::RowGroups => "row_groups",
+            View::NullHeatmap => "null_heatmap",
+            View::DataPreview => "data_preview",
+            View::Compare => "compare",
+            View::ColumnSizeBreakdown => "col_size",
+            View::FileList => "file_list",
+            _ => "overview",
+        };
+        let mode = match self.profiling_mode { ProfilingMode::Metadata => "metadata", ProfilingMode::FullScan => "full_scan" };
+        Session { input_path: self.input_path.clone(), sidebar_selected: self.sidebar_selected, view: view.into(), profiling_mode: mode.into() }
+    }
+
+    pub fn restore_from_session(&mut self, s: &Session) {
+        if s.input_path != self.input_path { return; }
+        self.sidebar_selected = s.sidebar_selected;
+        self.view = match s.view.as_str() {
+            "schema" => View::Schema,
+            "column_detail" => View::ColumnDetail(s.sidebar_selected),
+            "row_groups" => View::RowGroups,
+            "null_heatmap" => View::NullHeatmap,
+            "data_preview" => View::DataPreview,
+            "compare" => View::Compare,
+            "col_size" => View::ColumnSizeBreakdown,
+            "file_list" => View::FileList,
+            _ => View::FileOverview,
+        };
+        self.profiling_mode = if s.profiling_mode == "full_scan" { ProfilingMode::FullScan } else { ProfilingMode::Metadata };
     }
 
     pub fn cycle_profiling_mode(&mut self) {

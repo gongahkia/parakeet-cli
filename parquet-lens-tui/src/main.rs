@@ -10,6 +10,7 @@ use ratatui::{backend::CrosstermBackend, Terminal};
 use std::{io, time::Duration};
 use tui::app::App;
 use tui::events::handle_key;
+use tui::session::Session;
 use tui::ui::render;
 use parquet_lens_core::{
     resolve_paths, read_metadata_parallel, open_parquet_file,
@@ -68,6 +69,7 @@ fn run_tui(input_path: String, config: Config) -> anyhow::Result<()> {
     }).collect();
 
     let mut app = App::new(input_path, config);
+    if let Some(s) = Session::load() { app.restore_from_session(&s); }
     app.dataset = Some(dataset);
     app.file_info = Some(file_info);
     app.row_groups = row_groups;
@@ -93,6 +95,7 @@ fn run_tui(input_path: String, config: Config) -> anyhow::Result<()> {
         }
         if app.should_quit { break; }
     }
+    let _ = app.to_session().save();
 
     disable_raw_mode()?;
     execute!(terminal.backend_mut(), LeaveAlternateScreen, DisableMouseCapture)?;
