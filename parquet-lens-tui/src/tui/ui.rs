@@ -497,14 +497,19 @@ fn render_help(frame: &mut Frame, area: Rect) {
         Line::from("  T        Time-series profile"),
         Line::from("  X        Nested type profile"),
         Line::from("  W        Repair suggestions"),
+        Line::from("  V        Duplicate detection"),
+        Line::from("  C        Cross-column null patterns"),
+        Line::from("  A        Baseline diff view"),
+        Line::from("  G        Save current profile as baseline"),
+        Line::from("  P        Predicate filter mode"),
+        Line::from("  /        Search columns"),
         Line::from("  j/k      Navigate sidebar"),
         Line::from("  Enter    Column detail"),
         Line::from("  </> Sort row groups"),
         Line::from("  arrows   Scroll data preview"),
         Line::from("  Esc      Back to overview"),
-        Line::from("  P        Predicate filter mode"),
     ];
-    let popup = centered_rect(50, 70, area);
+    let popup = centered_rect(52, 80, area);
     frame.render_widget(ratatui::widgets::Clear, popup);
     frame.render_widget(Paragraph::new(text).block(Block::default().borders(Borders::ALL).title("Help (?)")), popup);
 }
