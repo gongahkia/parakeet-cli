@@ -1,6 +1,16 @@
 [package]
 name = "parquet-lens-tui"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
+
+[[bin]]
+name = "parquet-lens"
+path = "src/main.rs"
 
 [dependencies]
+parquet-lens-common = { path = "../parquet-lens-common" }
+parquet-lens-core = { path = "../parquet-lens-core" }
+arrow = { workspace = true }
+parquet = { workspace = true }
+anyhow = { workspace = true }
+tokio = { workspace = true }
