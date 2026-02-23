@@ -3,6 +3,7 @@ use parquet_lens_core::{
     DatasetProfile, ColumnSchema, ParquetFileInfo, RowGroupProfile,
     AggregatedColumnStats, EncodingAnalysis, CompressionAnalysis,
     QualityScore, ColumnProfileResult, DatasetComparison, FilterResult,
+    RepairSuggestion, TimeSeriesProfile, NestedColumnProfile,
 };
 use parquet_lens_common::Config;
 
@@ -10,7 +11,7 @@ use parquet_lens_common::Config;
 pub enum SidebarSort { Name, NullRate, Cardinality, Size, Quality }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum View { FileOverview, Schema, ColumnDetail(usize), RowGroups, NullHeatmap, DataPreview, Help, ConfirmFullScan, Compare, ColumnSizeBreakdown, FileList, FilterInput }
+pub enum View { FileOverview, Schema, ColumnDetail(usize), RowGroups, NullHeatmap, DataPreview, Help, ConfirmFullScan, Compare, ColumnSizeBreakdown, FileList, FilterInput, Repair, TimeSeries, Nested }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ProfilingMode { Metadata, FullScan }
@@ -57,6 +58,9 @@ pub struct App {
     pub filter_active: bool,
     pub filter_result: Option<FilterResult>,
     pub sample_note: Option<String>,
+    pub repair_suggestions: Vec<RepairSuggestion>,
+    pub timeseries_profiles: Vec<TimeSeriesProfile>,
+    pub nested_profiles: Vec<NestedColumnProfile>,
 }
 
 impl App {
@@ -80,6 +84,9 @@ impl App {
             bookmarks: Vec::new(), show_bookmarks_only: false,
             filter_input: String::new(), filter_active: false, filter_result: None,
             sample_note: None,
+            repair_suggestions: Vec::new(),
+            timeseries_profiles: Vec::new(),
+            nested_profiles: Vec::new(),
         }
     }
     pub fn columns(&self) -> &[ColumnSchema] {
@@ -102,7 +109,6 @@ impl App {
             Focus::Overlay => Focus::Sidebar,
         };
     }
-    /// returns column indices after applying search filter, bookmark filter, and sort
     pub fn filtered_column_indices(&self) -> Vec<usize> {
         let cols = self.columns();
         let mut indices: Vec<usize> = (0..cols.len()).filter(|&i| {
@@ -164,6 +170,9 @@ impl App {
             View::ColumnSizeBreakdown => "col_size",
             View::FileList => "file_list",
             View::FilterInput => "filter_input",
+            View::Repair => "repair",
+            View::TimeSeries => "timeseries",
+            View::Nested => "nested",
             _ => "overview",
         };
         let mode = match self.profiling_mode { ProfilingMode::Metadata => "metadata", ProfilingMode::FullScan => "full_scan" };
@@ -182,6 +191,9 @@ impl App {
             "compare" => View::Compare,
             "col_size" => View::ColumnSizeBreakdown,
             "file_list" => View::FileList,
+            "repair" => View::Repair,
+            "timeseries" => View::TimeSeries,
+            "nested" => View::Nested,
             _ => View::FileOverview,
         };
         self.profiling_mode = if s.profiling_mode == "full_scan" { ProfilingMode::FullScan } else { ProfilingMode::Metadata };

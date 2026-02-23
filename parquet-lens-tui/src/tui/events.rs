@@ -22,7 +22,6 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
 }
 
 fn handle_sidebar(app: &mut App, key: KeyEvent) {
-    // search mode intercepts printable chars
     if app.sidebar_searching {
         match key.code {
             KeyCode::Esc | KeyCode::Enter => { app.sidebar_searching = false; }
@@ -48,6 +47,9 @@ fn handle_sidebar(app: &mut App, key: KeyEvent) {
         KeyCode::Char('D') => app.view = View::DataPreview,
         KeyCode::Char('Z') => app.view = View::ColumnSizeBreakdown,
         KeyCode::Char('F') => app.view = View::FileList,
+        KeyCode::Char('T') => app.view = View::TimeSeries, // time-series profile
+        KeyCode::Char('X') => app.view = View::Nested,     // nested type profile
+        KeyCode::Char('W') => app.view = View::Repair,     // repair suggestions
         KeyCode::Char('/') => { app.sidebar_searching = true; app.sidebar_search.clear(); }
         KeyCode::Char('o') => {
             app.sidebar_sort = match app.sidebar_sort {

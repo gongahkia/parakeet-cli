@@ -18,6 +18,7 @@ use parquet_lens_core::{
     analyze_encodings, analyze_compression, score_column,
     summarize_quality, print_summary, export_json, export_csv,
     sample_row_groups, SampleConfig,
+    detect_repair_suggestions, profile_timeseries, profile_nested_columns,
 };
 use parquet_lens_common::Config;
 
@@ -71,13 +72,33 @@ fn run_tui(input_path: String, config: Config, sample_pct: Option<f64>) -> anyho
 
     let mut app = App::new(input_path, config);
     if let Some(s) = Session::load() { app.restore_from_session(&s); }
-    app.dataset = Some(dataset);
+    app.dataset = Some(dataset.clone());
     app.file_info = Some(file_info);
     app.row_groups = row_groups;
     app.agg_stats = agg_stats;
     app.encoding_analysis = encoding_analysis;
     app.compression_analysis = compression_analysis;
     app.quality_scores = quality_scores;
+
+    // repair suggestions
+    app.repair_suggestions = detect_repair_suggestions(&app.row_groups, &app.agg_stats, &app.encoding_analysis);
+
+    // time-series profiling — detect timestamp/date columns from schema
+    let ts_cols: Vec<String> = dataset.combined_schema.iter()
+        .filter(|c| c.logical_type.as_deref().map(|t| t.contains("Timestamp") || t.contains("Date")).unwrap_or(false))
+        .map(|c| c.name.clone())
+        .collect();
+    if !ts_cols.is_empty() {
+        if let Ok(ts) = profile_timeseries(&paths[0].path, &ts_cols) {
+            app.timeseries_profiles = ts;
+        }
+    }
+
+    // nested column profiling
+    if let Ok(np) = profile_nested_columns(&paths[0].path) {
+        app.nested_profiles = np;
+    }
+
     if let Some(pct) = sample_pct {
         let pct = pct.clamp(1.0, 100.0);
         let sp_path = paths[0].path.to_string_lossy().to_string();

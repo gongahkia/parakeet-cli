@@ -82,8 +82,84 @@ fn render_main(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
         View::Compare => render_compare(frame, app, area, theme),
         View::ColumnSizeBreakdown => render_col_size_breakdown(frame, app, area),
         View::FileList => render_file_list(frame, app, area),
-        View::FilterInput => render_file_overview(frame, app, area), // filter overlay renders on top
+        View::FilterInput => render_file_overview(frame, app, area),
+        View::Repair => render_repair(frame, app, area, theme),
+        View::TimeSeries => render_timeseries(frame, app, area, theme),
+        View::Nested => render_nested(frame, app, area, theme),
     }
+}
+
+fn render_repair(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
+    if app.repair_suggestions.is_empty() {
+        frame.render_widget(Paragraph::new("No repair suggestions — file looks healthy.").block(Block::default().borders(Borders::ALL).title("Repair Suggestions (W)")), area);
+        return;
+    }
+    let header = Row::new(["Severity","Issue","Recommendation"].map(|h| Cell::from(h).style(Style::default().add_modifier(Modifier::BOLD))));
+    let rows: Vec<Row> = app.repair_suggestions.iter().map(|s| {
+        let color = match s.severity.as_str() { "high" => theme.error, "medium" => theme.warning, _ => theme.fg };
+        Row::new([
+            Cell::from(s.severity.clone()).style(Style::default().fg(color)),
+            Cell::from(s.issue.clone()),
+            Cell::from(s.recommendation.clone()),
+        ])
+    }).collect();
+    let table = Table::new(rows, [Constraint::Length(8), Constraint::Min(30), Constraint::Min(40)])
+        .header(header).block(Block::default().borders(Borders::ALL).title("Repair Suggestions (W)"));
+    frame.render_widget(table, area);
+}
+
+fn render_timeseries(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
+    if app.timeseries_profiles.is_empty() {
+        frame.render_widget(Paragraph::new("No timestamp columns detected.").block(Block::default().borders(Borders::ALL).title("Time-Series Profile (T)")), area);
+        return;
+    }
+    let header = Row::new(["Column","Min","Max","Duration","MeanGap","MaxGap","Monotonic","Alert"].map(|h| Cell::from(h).style(Style::default().add_modifier(Modifier::BOLD))));
+    let rows: Vec<Row> = app.timeseries_profiles.iter().map(|ts| {
+        let mono_color = if ts.is_monotonic { theme.success } else { theme.error };
+        Row::new([
+            Cell::from(ts.column_name.clone()),
+            Cell::from(ts.min_timestamp.map_or("-".into(), |v| v.to_string())),
+            Cell::from(ts.max_timestamp.map_or("-".into(), |v| v.to_string())),
+            Cell::from(ts.total_duration_ms.map_or("-".into(), |v| fmt_ms(v))),
+            Cell::from(ts.mean_gap_ms.map_or("-".into(), |v| fmt_ms(v as i64))),
+            Cell::from(ts.max_gap_ms.map_or("-".into(), |v| fmt_ms(v))),
+            Cell::from(if ts.is_monotonic { "yes" } else { "NO" }).style(Style::default().fg(mono_color)),
+            Cell::from(ts.missing_interval_hint.clone().unwrap_or_default()),
+        ])
+    }).collect();
+    let table = Table::new(rows, [
+        Constraint::Min(16), Constraint::Length(14), Constraint::Length(14),
+        Constraint::Length(12), Constraint::Length(10), Constraint::Length(10),
+        Constraint::Length(9), Constraint::Min(20),
+    ]).header(header).block(Block::default().borders(Borders::ALL).title("Time-Series Profile (T)"));
+    frame.render_widget(table, area);
+}
+
+fn render_nested(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
+    if app.nested_profiles.is_empty() {
+        frame.render_widget(Paragraph::new("No nested columns detected (all flat schema).").block(Block::default().borders(Borders::ALL).title("Nested Type Profile (X)")), area);
+        return;
+    }
+    let header = Row::new(["Column","Type","Depth","DefLvl","RepLvl","List","Map","Struct"].map(|h| Cell::from(h).style(Style::default().add_modifier(Modifier::BOLD))));
+    let rows: Vec<Row> = app.nested_profiles.iter().map(|np| {
+        let kind_color = if np.is_list { theme.string } else if np.is_map { theme.temporal } else { theme.numeric };
+        Row::new([
+            Cell::from(np.column_name.clone()),
+            Cell::from(np.physical_type.clone()).style(Style::default().fg(kind_color)),
+            Cell::from(np.nesting_depth.to_string()),
+            Cell::from(np.max_def_level.to_string()),
+            Cell::from(np.max_rep_level.to_string()),
+            Cell::from(if np.is_list { "yes" } else { "" }),
+            Cell::from(if np.is_map { "yes" } else { "" }),
+            Cell::from(if np.is_struct { "yes" } else { "" }),
+        ])
+    }).collect();
+    let table = Table::new(rows, [
+        Constraint::Min(20), Constraint::Length(14), Constraint::Length(6),
+        Constraint::Length(7), Constraint::Length(7),
+        Constraint::Length(5), Constraint::Length(5), Constraint::Length(7),
+    ]).header(header).block(Block::default().borders(Borders::ALL).title("Nested Type Profile (X)"));
+    frame.render_widget(table, area);
 }
 
 fn render_col_size_breakdown(frame: &mut Frame, app: &App, area: Rect) {
@@ -348,6 +424,9 @@ fn render_help(frame: &mut Frame, area: Rect) {
         Line::from("  R        Row groups"),
         Line::from("  N        Null heatmap"),
         Line::from("  D        Data preview"),
+        Line::from("  T        Time-series profile"),
+        Line::from("  X        Nested type profile"),
+        Line::from("  W        Repair suggestions"),
         Line::from("  j/k      Navigate sidebar"),
         Line::from("  Enter    Column detail"),
         Line::from("  </> Sort row groups"),
@@ -375,10 +454,10 @@ fn render_progress(frame: &mut Frame, area: Rect, rp: u64, tr: u64, theme: &Them
 
 fn render_bottombar(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
     let bar_text = if let Some(r) = &app.filter_result {
-        format!(" {} | filter: {} matched / {} scanned ({} rgs skipped) | q:quit ?:help Tab:focus S R N D m P",
+        format!(" {} | filter: {} matched / {} scanned ({} rgs skipped) | q:quit ?:help Tab:focus S R N D T X W m P",
             app.status_msg, r.matched_rows, r.scanned_rows, r.skipped_rgs)
     } else {
-        format!(" {} | q:quit ?:help Tab:focus S R N D m P", app.status_msg)
+        format!(" {} | q:quit ?:help Tab:focus S R N D T X W m P", app.status_msg)
     };
     frame.render_widget(Paragraph::new(bar_text).style(Style::default().bg(theme.bg).fg(theme.fg)), area);
 }
@@ -402,6 +481,10 @@ fn type_color(phys: &str, log: Option<&str>, theme: &Theme) -> Color {
 
 fn fmt_bytes(b: u64) -> String {
     if b < 1024 { format!("{b}B") } else if b < 1<<20 { format!("{:.1}KB", b as f64/1024.0) } else if b < 1<<30 { format!("{:.1}MB", b as f64/1048576.0) } else { format!("{:.2}GB", b as f64/1073741824.0) }
+}
+
+fn fmt_ms(ms: i64) -> String {
+    if ms.abs() < 1000 { format!("{ms}ms") } else if ms.abs() < 60_000 { format!("{:.1}s", ms as f64 / 1000.0) } else if ms.abs() < 3_600_000 { format!("{:.1}m", ms as f64 / 60000.0) } else { format!("{:.1}h", ms as f64 / 3_600_000.0) }
 }
 
 fn truncate(s: &str, max: usize) -> String {
