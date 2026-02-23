@@ -1,9 +1,3 @@
-(B) Implement partition key analysis: for Hive-partitioned datasets, show partition column names, distinct partition values count, partition size distribution (rows and bytes per partition), flag skewed partitions (>3x median size) +stats
-(B) Implement column correlation matrix for numeric columns: compute pairwise Pearson correlation using streaming algorithm, display as color-coded matrix in TUI (blue=negative, red=positive, white=zero) +profile
-(B) Implement value length distribution histogram for string/binary columns: bucket by string length, render as histogram widget +profile
-(B) Implement sorted order detection per column: sample first and last values from each row group, check if column appears sorted (ascending/descending), report as "appears sorted" badge — useful for predicate pushdown optimization hints +quality
-(B) Implement page index analysis: if Parquet file has column index and offset index (Parquet 2.0 features), report coverage and effectiveness for predicate pushdown +stats
-(B) Implement bloom filter presence detection: check if columns have bloom filter metadata, report which columns have bloom filters and estimated FP rate +stats
 (B) Implement column size breakdown view: keybinding `Z` shows stacked bar chart of total byte size per column (compressed), sorted largest first — identifies columns dominating storage +tui
 (B) Implement search within column list: keybinding `/` in sidebar activates text filter, fuzzy-match column names, filter list in real-time as user types +tui
 (B) Implement column sorting in sidebar: keybinding `o` opens sort menu — sort by name (default), null rate, cardinality, size, quality score — ascending/descending toggle +tui
