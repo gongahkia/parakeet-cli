@@ -80,9 +80,8 @@ pub fn export_csv(
         };
         writeln!(
             file,
-            "{},{},{:.4},{},{},{},{:.4},{},{}",
+            "{},-,{:.4},{},{},{},{:.4},{},{}",
             stat.column_name,
-            "-",
             stat.null_percentage / 100.0,
             stat.total_distinct_count_estimate
                 .map_or("-".into(), |d| d.to_string()),

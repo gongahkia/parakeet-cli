@@ -36,14 +36,14 @@ pub fn score_column(
         notes.push(format!("null_rate={null_percentage:.1}%"));
     }
     // constant column
-    let is_constant = distinct_count.map_or(false, |d| d <= 1);
+    let is_constant = distinct_count.is_some_and(|d| d <= 1);
     if is_constant {
         score -= 20.0;
         notes.push("constant_column".into());
     }
     // high cardinality (= row count, likely an ID or raw event column)
     let cardinality_flag =
-        distinct_count.map_or(false, |d| total_rows > 0 && d as i64 == total_rows);
+        distinct_count.is_some_and(|d| total_rows > 0 && d as i64 == total_rows);
     if cardinality_flag {
         score -= 5.0;
         notes.push("cardinality=row_count".into());
