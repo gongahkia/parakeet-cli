@@ -42,8 +42,7 @@ pub fn score_column(
         notes.push("constant_column".into());
     }
     // high cardinality (= row count, likely an ID or raw event column)
-    let cardinality_flag =
-        distinct_count.is_some_and(|d| total_rows > 0 && d as i64 == total_rows);
+    let cardinality_flag = distinct_count.is_some_and(|d| total_rows > 0 && d as i64 == total_rows);
     if cardinality_flag {
         score -= 5.0;
         notes.push("cardinality=row_count".into());

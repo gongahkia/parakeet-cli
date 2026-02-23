@@ -46,5 +46,7 @@ impl BooleanAccumulator {
 }
 
 impl Default for BooleanAccumulator {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }

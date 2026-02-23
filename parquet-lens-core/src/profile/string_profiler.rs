@@ -133,5 +133,7 @@ impl StringAccumulator {
 }
 
 impl Default for StringAccumulator {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }

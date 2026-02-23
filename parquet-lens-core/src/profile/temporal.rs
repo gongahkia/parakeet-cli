@@ -58,5 +58,7 @@ impl TemporalAccumulator {
 }
 
 impl Default for TemporalAccumulator {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }

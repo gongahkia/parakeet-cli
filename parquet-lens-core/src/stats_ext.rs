@@ -153,12 +153,11 @@ pub fn compute_correlation(_meta: &ParquetMetaData, path: &Path) -> Result<Corre
                                         .unwrap()
                                         .value(row) as f64
                                 }
-                                DataType::Float64 => {
-                                    col.as_any()
-                                        .downcast_ref::<Float64Array>()
-                                        .unwrap()
-                                        .value(row)
-                                }
+                                DataType::Float64 => col
+                                    .as_any()
+                                    .downcast_ref::<Float64Array>()
+                                    .unwrap()
+                                    .value(row),
                                 _ => f64::NAN,
                             }
                         }

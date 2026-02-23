@@ -130,5 +130,7 @@ impl NumericAccumulator {
 }
 
 impl Default for NumericAccumulator {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
