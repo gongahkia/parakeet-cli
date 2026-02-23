@@ -1,4 +1,3 @@
-(B) Add `'I'` keybind in TUI sidebar to toggle showing only columns with null rate above a threshold (e.g., >5%) as a quick null-hot-spot filter +feature +dx
 (B) Expose `PartitionInfo` from `stats_ext.rs` in a `View::Partitions` TUI view accessible via `'Q'` keybind, showing partition columns, values, and file counts +feature
 (B) In `parquet-lens-core/src/sample.rs`, add `seed: Option<u64>` to `SampleConfig` for reproducible sampling (use seed to select deterministic row group indices instead of always taking the first N) +feature +stability
 (B) In `parquet-lens-tui/src/main.rs`, after `Config::load()` fails, print a warning to stderr (`eprintln!`) with the config file path so users know why defaults are being used — currently `unwrap_or_default()` silently swallows the error +dx +stability
