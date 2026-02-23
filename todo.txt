@@ -5,13 +5,10 @@
 (B) Add `--watch` flag skeleton to `Inspect` subcommand in `parquet-lens-tui/src/main.rs` (`#[arg(long)] watch: bool`) that prints a "not yet implemented" message; this reserves the CLI surface for a future file-change polling feature without breaking the arg parser +dx
 (B) Validate that `sample` percentage arg is in range `(0.0, 100.0]` at CLI parse time in `parquet-lens-tui/src/main.rs` using clap `value_parser` with `clap::value_parser!(f64).range(0.0001..=100.0)` instead of clamping silently in business logic +stability +dx
 (B) Add `--no-sample-extrapolation` flag to `Inspect` subcommand in `parquet-lens-tui/src/main.rs` that, when set, prevents `SampleConfig` from applying confidence extrapolation, showing raw sampled counts +feature
-(B) In `parquet-lens-core/src/null_patterns.rs` `analyze_null_patterns`, replace the O(n²) correlated-null grouping with a sort-then-group approach: sort candidates by `null_percentage`, then linear scan to group adjacent values within 2% tolerance +stability +refactor
 (B) Export `analyze_null_patterns` result as part of `export_json` output in `parquet-lens-core/src/export.rs` by adding a `null_patterns` field to the JSON object when called from CLI +feature +export
 (B) Add `engine_info` to `export_json` output in `parquet-lens-core/src/export.rs` so exported profiles include write-engine identification +feature +export
 (B) Add `baseline_regressions` to `export_json` output in `parquet-lens-core/src/export.rs` when a baseline exists +feature +export
 (B) In `parquet-lens-core/src/filter.rs`, add bounds checking on `filter_count` for the case where the predicate references a column name that doesn't exist in the schema; return a clear error instead of silently returning 0 matched rows +stability
-(B) Add `parquet-lens-tui/Cargo.toml` to workspace; verify the `parquet-lens-tui` crate has its own `Cargo.toml` listing `parquet-lens-core` and `parquet-lens-common` as path dependencies (check if missing) +infra
-(B) In `parquet-lens-core/src/sample.rs`, propagate `profile_columns` errors as `Err` instead of silently defaulting when full-scan profile fails during sampling +stability
 (B) In `run_tui` in `parquet-lens-tui/src/main.rs`, handle the case where `profile_timeseries` is called but the parquet file has no timestamp/date columns by skipping the call entirely (currently only skipped when `ts_cols.is_empty()`, which is correct, but the error branch silently discards the error — log it to `app.status_msg` instead) +stability
 (B) In `parquet-lens-core/src/gcs_reader.rs`, handle HTTP 401/403 responses from GCS as typed `ParquetLensError::Auth` variant (add `Auth(String)` to `ParquetLensError` in `parquet-lens-common/src/lib.rs`) instead of opaque `Other` +stability +gcs
 (B) Similarly add `ParquetLensError::Auth(String)` handling for S3 `NoCredentialsError` / `CredentialsError` in `parquet-lens-core/src/s3_reader.rs` +stability +s3
@@ -20,14 +17,12 @@
 (B) In `parquet-lens-tui/src/tui/ui.rs` `View::Baseline` render branch, display the baseline's `captured_at` unix timestamp as a human-readable date string using `std::time::UNIX_EPOCH + Duration::from_secs(captured_at)` formatted via `chrono` or manual computation +dx
 (B) In `parquet-lens-core/src/parallel_reader.rs`, validate that all files in a directory share the same schema root columns before aggregating into `DatasetProfile`; surface schema inconsistencies in `DatasetProfile.schema_inconsistencies` field instead of silently merging mismatched schemas +stability
 (B) Add `summary` subcommand to session persistence: write summary output to a JSON file at `config.export.output_dir/summary.json` when `--save` flag is passed to `summary` subcommand +feature
-(B) In `parquet-lens-core/src/stats.rs`, guard against division by zero in `null_percentage` calculation when `total_rows == 0` +stability
 (B) In `parquet-lens-tui/src/tui/ui.rs`, clamp `preview_scroll_x` and `preview_scroll_y` to valid bounds when rendering `View::DataPreview` to prevent out-of-bounds access on the preview_rows/headers vectors +stability
 (B) Add `'E'` keybind in TUI sidebar (`handle_sidebar` in `parquet-lens-tui/src/tui/events.rs`) to trigger export of current profile to JSON in the background, outputting to `config.export.output_dir` without leaving TUI +feature +export
 (B) In `parquet-lens-core/src/export.rs` `export_csv`, add header row for quality score breakdown column (currently `breakdown` field may contain commas that break CSV parsing) — escape commas in `breakdown` with `"..."` quoting +stability +export
 (B) In `parquet-lens-core/src/recommendations.rs`, add a `recommend_row_group_size` function that suggests row group size adjustments based on current average row group size vs. 128MB target +feature
 (B) Surface `recommend_row_group_size` results in `View::Repair` render in `parquet-lens-tui/src/tui/ui.rs` alongside existing `RepairSuggestion` list +feature
 (B) In `parquet-lens-core/src/stats_ext.rs` `detect_sort_order`, return `SortedOrderInfo` with a `confidence: f64` field (ratio of in-order adjacent pairs) rather than a binary sorted/unsorted flag, for more nuanced display +feature
-(B) In `parquet-lens-tui/src/tui/ui.rs` `View::Schema` render, display `logical_type` alongside `physical_type` for each column (currently only physical type may be shown) +dx
 (B) Add mouse scroll support in TUI event loop in `parquet-lens-tui/src/main.rs`: handle `Event::Mouse(MouseEvent { kind: MouseEventKind::ScrollDown/Up, .. })` to update `preview_scroll_y` or `sidebar_selected` depending on focus +feature +dx
 (B) In `parquet-lens-core/src/profile/full_scan.rs`, add a `timeout_secs: Option<u64>` parameter that aborts the full scan early and returns partial results with a `truncated: true` flag, to bound full-scan time on very large files +feature +stability
 (B) In `parquet-lens-tui/src/tui/events.rs`, add `KeyCode::Char('H')` and `KeyCode::Char('L')` (vim-style) as aliases for `Left`/`Right` in `handle_main` for consistent vim navigation +dx
@@ -36,14 +31,9 @@
 (B) In `parquet-lens-core/src/engine.rs` `identify_engine`, add recognition for `parquet-go` (Go Parquet library) and `parquet4s` (Scala) engines with appropriate hints +feature
 (B) In `parquet-lens-core/src/timeseries.rs`, handle the case where the timestamp column contains all-null values gracefully (currently may produce NaN min/max) — return a `TimeSeriesProfile` with `has_data: false` sentinel instead +stability
 (B) Add a `'?'` overlay in TUI that shows a scrollable keybind reference table with all current keybinds (not just a static text block) using ratatui `Table` widget with `scroll_offset` state in `App` +dx
-(B) In `parquet-lens-common/src/lib.rs`, add `ParquetLensError::Io(#[from] std::io::Error)` variant using `thiserror` `#[from]` if not already present, to avoid manual `From` impl boilerplate +refactor
-(B) In `parquet-lens-core/src/filter.rs`, support `IS NULL` and `IS NOT NULL` predicate syntax in `parse_predicate` in addition to existing comparison operators +feature
-(B) In `parquet-lens-core/src/filter.rs`, add `IN (val1, val2, ...)` predicate syntax support to `parse_predicate` for membership filtering +feature
 (B) Add `'I'` keybind in TUI sidebar to toggle showing only columns with null rate above a threshold (e.g., >5%) as a quick null-hot-spot filter +feature +dx
 (B) Expose `PartitionInfo` from `stats_ext.rs` in a `View::Partitions` TUI view accessible via `'Q'` keybind, showing partition columns, values, and file counts +feature
 (B) In `parquet-lens-core/src/sample.rs`, add `seed: Option<u64>` to `SampleConfig` for reproducible sampling (use seed to select deterministic row group indices instead of always taking the first N) +feature +stability
 (B) In `parquet-lens-tui/src/main.rs`, after `Config::load()` fails, print a warning to stderr (`eprintln!`) with the config file path so users know why defaults are being used — currently `unwrap_or_default()` silently swallows the error +dx +stability
 (B) Add a `'K'` keybind in TUI to copy the currently selected column's name to the system clipboard using `cli-clipboard` crate (add as optional dep) or fall back to printing to status bar +dx
-(B) In `parquet-lens-core/src/schema_diff.rs`, add a `repetition_changed` field to `ColumnSchemaDiff` to detect when a column's repetition level (Required/Optional/Repeated) changes between files +feature +compare
-(B) In `parquet-lens-tui/src/tui/ui.rs`, render `engine_info.hints` as a bullet list in the `View::FileOverview` panel if `app.engine_info` is Some +dx
 (B) Add `--json` flag to `summary` subcommand in `parquet-lens-tui/src/main.rs` that outputs the `DatasetQuality` struct as raw JSON to stdout for pipeline use +feature +dx
