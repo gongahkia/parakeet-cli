@@ -1,6 +1,3 @@
-(B) Implement S3 path resolver: parse `s3://bucket/prefix` URIs, use `aws-sdk-s3` crate with credential chain (env vars → profile → instance metadata), list objects matching prefix, return as virtual file list +reader
-(B) Implement S3 range-read for Parquet footer: read only last 8 bytes (footer length) + footer bytes via HTTP Range request, parse metadata without downloading full file — critical for profiling remote files +reader
-(B) Implement S3 column chunk selective read: for full-scan mode on remote files, read only selected column chunks via Range requests using offsets from metadata, avoid downloading entire file +reader
 (B) Implement GCS path support: parse `gs://bucket/prefix` URIs, use `google-cloud-storage` crate or HTTP API with application default credentials +reader
 (B) Implement comparison mode TUI: `compare` subcommand opens split-pane view, left = dataset A, right = dataset B, synchronized column selection — differences highlighted in yellow +compare
 (B) Implement schema diff in comparison mode: side-by-side schema display, added columns in green, removed in red, type-changed in yellow, matching columns in default color +compare
