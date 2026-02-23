@@ -69,6 +69,7 @@ enum Commands {
         sample: Option<f64>,
         #[arg(long)] watch: bool,
         #[arg(long)] no_sample_extrapolation: bool,
+        #[arg(long)] save_baseline: bool,
     },
     Summary { path: String },
     Compare { path1: String, path2: String },
@@ -86,9 +87,9 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     let config = Config::load().unwrap_or_default();
     match cli.command {
-        Commands::Inspect { path, sample, watch, no_sample_extrapolation } => {
+        Commands::Inspect { path, sample, watch, no_sample_extrapolation, save_baseline } => {
             if watch { eprintln!("--watch: not yet implemented"); }
-            run_tui(path, config, sample, no_sample_extrapolation)?
+            run_tui(path, config, sample, no_sample_extrapolation, save_baseline)?
         }
         Commands::Summary { path } => run_summary(path)?,
         Commands::Compare { path1, path2 } => run_compare(path1, path2, config)?,
@@ -107,7 +108,7 @@ fn run_duplicates(input_path: String) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn run_tui(input_path: String, config: Config, sample_pct: Option<f64>, no_sample_extrapolation: bool) -> anyhow::Result<()> {
+fn run_tui(input_path: String, config: Config, sample_pct: Option<f64>, no_sample_extrapolation: bool, save_baseline: bool) -> anyhow::Result<()> {
     let paths = rp(&input_path)?;
     if paths.is_empty() { anyhow::bail!("No Parquet files found: {input_path}"); }
     let dataset = read_metadata_parallel(&paths).map_err(|e| anyhow::anyhow!("{e}"))?;
@@ -185,6 +186,13 @@ fn run_tui(input_path: String, config: Config, sample_pct: Option<f64>, no_sampl
         let (base, regressions) = load_baseline_regressions(&paths[0].path, &app.agg_stats, &app.quality_scores, &schema);
         app.has_baseline = base.is_some();
         app.baseline_regressions = regressions;
+        if save_baseline {
+            let new_base = parquet_lens_core::BaselineProfile::new(&app.input_path, schema, app.agg_stats.clone(), app.quality_scores.clone());
+            match new_base.save() {
+                Ok(_) => { app.status_msg = "baseline saved (--save-baseline)".into(); app.has_baseline = true; }
+                Err(e) => { app.status_msg = format!("--save-baseline failed: {e}"); }
+            }
+        }
     }
 
     // pre-compute null patterns
