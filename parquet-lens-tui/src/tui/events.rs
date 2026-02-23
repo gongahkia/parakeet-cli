@@ -69,6 +69,19 @@ fn handle_sidebar(app: &mut App, key: KeyEvent) {
         KeyCode::Char('b') => app.toggle_bookmark(),
         KeyCode::Char('B') => { app.show_bookmarks_only = !app.show_bookmarks_only; app.sidebar_selected = 0; }
         KeyCode::Char('I') => { app.show_null_hotspot_only = !app.show_null_hotspot_only; app.sidebar_selected = 0; }
+        KeyCode::Char('K') => {
+            if let Some(&col_idx) = app.filtered_column_indices().get(app.sidebar_selected) {
+                let name = app.columns()[col_idx].name.clone();
+                #[cfg(feature = "clipboard")]
+                {
+                    if cli_clipboard::set_contents(name.clone()).is_ok() {
+                        app.status_msg = format!("copied: {name}");
+                        return;
+                    }
+                }
+                app.status_msg = format!("column: {name}");
+            }
+        }
         KeyCode::Char('P') => { app.filter_active = true; app.view = View::FilterInput; app.focus = Focus::Overlay; }
         KeyCode::Char('V') => {
             match detect_duplicates(std::path::Path::new(&app.input_path)) {
