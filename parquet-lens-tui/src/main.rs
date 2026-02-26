@@ -409,10 +409,36 @@ fn run_tui(
             .map_err(|e| anyhow::anyhow!("watch failed: {e}"))?;
         app.watch_rx = Some(wrx);
         Some(watcher)
+    } else if watch && (is_s3_uri(&p0_str) || is_gcs_uri(&p0_str)) {
+        let (wtx, wrx) = std::sync::mpsc::channel::<()>();
+        let uri = p0_str.to_string();
+        let s3_endpoint = app.config.s3.endpoint_url.clone();
+        let is_s3 = is_s3_uri(&uri);
+        tokio::spawn(async move {
+            let interval = tokio::time::Duration::from_secs(30); // default cloud interval
+            let mut prev_rows: Option<i64> = None;
+            loop {
+                tokio::time::sleep(interval).await;
+                let cur_rows = if is_s3 {
+                    read_s3_parquet_metadata(&uri, s3_endpoint.as_deref()).await
+                        .ok()
+                        .map(|m| m.file_metadata().num_rows())
+                } else {
+                    read_gcs_parquet_metadata(&uri).await
+                        .ok()
+                        .map(|m| m.file_metadata().num_rows())
+                };
+                if let Some(rows) = cur_rows {
+                    if prev_rows.map(|p| p != rows).unwrap_or(false) {
+                        let _ = wtx.send(());
+                    }
+                    prev_rows = Some(rows);
+                }
+            }
+        });
+        app.watch_rx = Some(wrx);
+        None
     } else {
-        if watch {
-            app.status_msg = "--watch not supported for S3/GCS yet".into();
-        }
         None
     };
 

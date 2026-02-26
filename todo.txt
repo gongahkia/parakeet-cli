@@ -1,6 +1,6 @@
 
 
-(B) Implement --watch for local files: add the notify crate to workspace Cargo.toml and in run_tui when watch=true spawn a notify Watcher on the input path that sends reload events through a channel re-running load_file_stats and refreshing all App fields on each event +feature +core
+
 (B) Implement --watch for S3/GCS: when --watch is set and path is an S3/GCS URI spawn a background tokio task that re-fetches metadata every --watch-interval seconds (default 30) and sends reload events to the same channel as local watch +feature +core
 (B) Add --watch-interval CLI arg to Inspect subcommand: u64 seconds default 5 for local and 30 for cloud; pass value into the watch loop implementation +feature +cli
 (B) Fix DataPreview: in run_tui after opening file metadata read up to config.display.max_rows_preview rows using ParquetRecordBatchReaderBuilder with batch_size=max_rows_preview; populate app.preview_headers from schema field names and app.preview_rows from the first batch string-formatted values +bug +tui
