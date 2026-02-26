@@ -7,6 +7,7 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use parquet::file::metadata::ParquetMetaData;
+use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
 use parquet_lens_core::{
     aggregate_column_stats,
     analyze_compression,
@@ -292,6 +293,33 @@ fn run_tui(
     app.encoding_analysis = encoding_analysis;
     app.compression_analysis = compression_analysis;
     app.quality_scores = quality_scores;
+
+    // data preview: read up to max_rows_preview rows for DataPreview view
+    if !is_s3_uri(&p0_str) && !is_gcs_uri(&p0_str) {
+        let max_preview = app.config.display.max_rows_preview;
+        if let Ok(preview_file) = std::fs::File::open(&paths[0].path) {
+            if let Ok(pb) = ParquetRecordBatchReaderBuilder::try_new(preview_file) {
+                let schema = pb.schema().clone();
+                app.preview_headers = schema.fields().iter().map(|f| f.name().clone()).collect();
+                if let Ok(reader) = pb.with_batch_size(max_preview).build() {
+                    let mut rows = Vec::new();
+                    for batch_result in reader {
+                        if rows.len() >= max_preview { break; }
+                        if let Ok(batch) = batch_result {
+                            for row_idx in 0..batch.num_rows() {
+                                if rows.len() >= max_preview { break; }
+                                let row: Vec<String> = (0..batch.num_columns())
+                                    .map(|c| arrow::util::display::array_value_to_string(batch.column(c), row_idx).unwrap_or_default())
+                                    .collect();
+                                rows.push(row);
+                            }
+                        }
+                    }
+                    app.preview_rows = rows;
+                }
+            }
+        }
+    }
 
     // repair suggestions
     app.repair_suggestions =
