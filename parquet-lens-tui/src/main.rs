@@ -132,6 +132,8 @@ enum Commands {
         sample_seed: Option<u64>,
         #[arg(long)]
         watch_interval: Option<u64>,
+        #[arg(long)]
+        fail_on_regression: bool,
     },
     Summary {
         path: String,
@@ -186,6 +188,7 @@ async fn main() -> anyhow::Result<()> {
             save_baseline,
             sample_seed,
             watch_interval,
+            fail_on_regression,
         } => {
             run_tui(
                 path,
@@ -196,6 +199,7 @@ async fn main() -> anyhow::Result<()> {
                 sample_seed,
                 watch,
                 watch_interval,
+                fail_on_regression,
             )?
         }
         Commands::Summary {
@@ -306,6 +310,7 @@ fn run_tui(
     sample_seed: Option<u64>,
     watch: bool,
     watch_interval: Option<u64>,
+    fail_on_regression: bool,
 ) -> anyhow::Result<()> {
     let paths = rp(&input_path)?;
     if paths.is_empty() {
@@ -466,6 +471,14 @@ fn run_tui(
                 }
             }
         }
+    }
+
+    // --fail-on-regression: exit before TUI if regressions found
+    if fail_on_regression && !app.baseline_regressions.is_empty() {
+        for r in &app.baseline_regressions {
+            eprintln!("regression: {} — {}", r.column, r.detail);
+        }
+        anyhow::bail!("{} regression(s) detected (--fail-on-regression)", app.baseline_regressions.len());
     }
 
     // pre-compute null patterns
