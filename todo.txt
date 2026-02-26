@@ -2,7 +2,6 @@
 
 
 
-(B) Add --watch-interval CLI arg to Inspect subcommand: u64 seconds default 5 for local and 30 for cloud; pass value into the watch loop implementation +feature +cli
 (B) Fix DataPreview: in run_tui after opening file metadata read up to config.display.max_rows_preview rows using ParquetRecordBatchReaderBuilder with batch_size=max_rows_preview; populate app.preview_headers from schema field names and app.preview_rows from the first batch string-formatted values +bug +tui
 (B) Fix run_compare S3/GCS path existence check: replace std::path::Path::new(&path1).exists() and path2 equivalent with an is_s3_uri/is_gcs_uri guard that skips the filesystem existence check for cloud URIs +bug +cli
 (B) Create unified open_parquet_auto async fn in parquet-lens-core/src/reader.rs: dispatches to read_s3_parquet_metadata, read_gcs_parquet_metadata, or open_parquet_file based on URI prefix; returns (ParquetFileInfo, ParquetMetaData) with consistent ParquetFileInfo population for cloud paths +refactor +core
