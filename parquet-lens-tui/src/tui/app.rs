@@ -87,7 +87,7 @@ pub struct App {
     pub preview_scroll_x: usize,
     pub preview_scroll_y: usize,
     pub progress: ProgressState,
-    pub progress_rx: Option<std::sync::mpsc::Receiver<u64>>, // async full-scan progress
+    pub progress_rx: Option<std::sync::mpsc::Receiver<(u64, Vec<ColumnProfileResult>)>>, // async full-scan progress
     pub pending_full_scan: bool, // triggers spawn_blocking for full-scan
     pub status_msg: String,
     pub should_quit: bool,

@@ -409,20 +409,23 @@ fn run_tui(
             };
             let path = std::path::PathBuf::from(&app.input_path);
             let bins = app.config.profiling.histogram_bins;
-            let (tx, rx) = std::sync::mpsc::channel::<u64>();
+            let (tx, rx) = std::sync::mpsc::channel::<(u64, Vec<parquet_lens_core::ColumnProfileResult>)>();
             app.progress_rx = Some(rx);
             tokio::task::spawn_blocking(move || {
-                let _ = profile_columns(&path, None, 65536, bins);
-                let _ = tx.send(total_rows); // signal completion
+                match profile_columns(&path, None, 65536, bins) {
+                    Ok(results) => { let _ = tx.send((total_rows, results)); }
+                    Err(_) => { let _ = tx.send((total_rows, Vec::new())); }
+                }
             });
         }
         // poll async full-scan progress channel
         let scan_done = if let Some(rx) = &app.progress_rx {
             let mut done = false;
-            while let Ok(rows_processed) = rx.try_recv() {
+            while let Ok((rows_processed, results)) = rx.try_recv() {
                 if let tui::app::ProgressState::Running { total_rows, .. } = app.progress {
                     if rows_processed >= total_rows {
                         app.progress = tui::app::ProgressState::Done;
+                        app.full_scan_results = results;
                         done = true;
                     } else {
                         app.progress = tui::app::ProgressState::Running {
