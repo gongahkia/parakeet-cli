@@ -124,6 +124,8 @@ enum Commands {
         save_baseline: bool,
         #[arg(long)]
         sample_seed: Option<u64>,
+        #[arg(long)]
+        watch_interval: Option<u64>,
     },
     Summary {
         path: String,
@@ -170,6 +172,7 @@ async fn main() -> anyhow::Result<()> {
             no_sample_extrapolation,
             save_baseline,
             sample_seed,
+            watch_interval,
         } => {
             run_tui(
                 path,
@@ -179,6 +182,7 @@ async fn main() -> anyhow::Result<()> {
                 save_baseline,
                 sample_seed,
                 watch,
+                watch_interval,
             )?
         }
         Commands::Summary {
@@ -222,6 +226,7 @@ fn run_tui(
     save_baseline: bool,
     sample_seed: Option<u64>,
     watch: bool,
+    watch_interval: Option<u64>,
 ) -> anyhow::Result<()> {
     let paths = rp(&input_path)?;
     if paths.is_empty() {
@@ -413,9 +418,10 @@ fn run_tui(
         let (wtx, wrx) = std::sync::mpsc::channel::<()>();
         let uri = p0_str.to_string();
         let s3_endpoint = app.config.s3.endpoint_url.clone();
+        let cloud_interval = watch_interval.unwrap_or(30);
         let is_s3 = is_s3_uri(&uri);
         tokio::spawn(async move {
-            let interval = tokio::time::Duration::from_secs(30); // default cloud interval
+            let interval = tokio::time::Duration::from_secs(cloud_interval);
             let mut prev_rows: Option<i64> = None;
             loop {
                 tokio::time::sleep(interval).await;
