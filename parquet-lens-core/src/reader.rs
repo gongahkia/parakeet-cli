@@ -81,3 +81,39 @@ pub fn open_parquet_file(path: &Path) -> Result<(ParquetFileInfo, ParquetMetaDat
     };
     Ok((info, meta))
 }
+
+/// unified async opener: dispatches to S3, GCS, or local reader based on URI prefix
+pub async fn open_parquet_auto(
+    path: &str,
+    s3_endpoint: Option<&str>,
+) -> Result<(ParquetFileInfo, ParquetMetaData)> {
+    if crate::s3_reader::is_s3_uri(path) {
+        let meta = crate::s3_reader::read_s3_parquet_metadata(path, s3_endpoint).await?;
+        let fi = ParquetFileInfo {
+            path: PathBuf::from(path),
+            file_size: 0,
+            row_count: meta.file_metadata().num_rows(),
+            row_group_count: meta.num_row_groups(),
+            created_by: meta.file_metadata().created_by().map(|s| s.to_owned()),
+            parquet_version: meta.file_metadata().version(),
+            key_value_metadata: Vec::new(),
+            schema_fields: Vec::new(),
+        };
+        Ok((fi, meta))
+    } else if crate::gcs_reader::is_gcs_uri(path) {
+        let meta = crate::gcs_reader::read_gcs_parquet_metadata(path).await?;
+        let fi = ParquetFileInfo {
+            path: PathBuf::from(path),
+            file_size: 0,
+            row_count: meta.file_metadata().num_rows(),
+            row_group_count: meta.num_row_groups(),
+            created_by: meta.file_metadata().created_by().map(|s| s.to_owned()),
+            parquet_version: meta.file_metadata().version(),
+            key_value_metadata: Vec::new(),
+            schema_fields: Vec::new(),
+        };
+        Ok((fi, meta))
+    } else {
+        open_parquet_file(Path::new(path))
+    }
+}

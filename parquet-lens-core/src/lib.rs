@@ -12,7 +12,7 @@ pub use profile::{
     CardinalityEstimate, ColumnProfileResult, FrequencyResult, HistogramBin, NumericProfile,
     StringProfile, TemporalProfile,
 };
-pub use reader::{open_parquet_file, ParquetFileInfo, SchemaFieldInfo};
+pub use reader::{open_parquet_auto, open_parquet_file, ParquetFileInfo, SchemaFieldInfo};
 pub use scanner::{resolve_paths, scan_directory, ParquetFilePath};
 pub use schema::{extract_schema, ColumnSchema};
 pub use schema_diff::{check_schema_consistency, InconsistencyKind, SchemaInconsistency};
