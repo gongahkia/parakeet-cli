@@ -771,43 +771,27 @@ pub fn filter_count(path: &Path, predicate: &Predicate) -> Result<FilterResult, 
     if !rgs_to_scan.is_empty() {
         let file2 = File::open(path).map_err(|e| e.to_string())?;
         let builder = ParquetRecordBatchReaderBuilder::try_new(file2).map_err(|e| e.to_string())?;
-        // read all row groups (we can't easily select specific ones without schema issues)
-        // build reader for all, then skip by tracking which rg we're in
-        let reader = builder.build().map_err(|e| e.to_string())?;
-        let _rg_cursor = 0usize; // tracks which RG we think we're in (approx)
-        let _rows_in_rg = 0i64;
-        // load rg row counts for tracking
-        let rg_row_counts: Vec<i64> = (0..total_rgs)
-            .map(|i| meta.row_group(i).num_rows())
-            .collect();
-        let mut rg_idx = 0usize;
-        let mut rows_seen_in_current_rg = 0i64;
+        let selection = parquet::arrow::arrow_reader::RowSelection::from(
+            (0..total_rgs)
+                .map(|i| {
+                    let count = meta.row_group(i).num_rows() as usize;
+                    if rgs_to_scan.contains(&i) {
+                        parquet::arrow::arrow_reader::RowSelector::select(count)
+                    } else {
+                        parquet::arrow::arrow_reader::RowSelector::skip(count)
+                    }
+                })
+                .collect::<Vec<_>>(),
+        );
+        let reader = builder
+            .with_row_selection(selection)
+            .build()
+            .map_err(|e| e.to_string())?;
         for batch_result in reader {
             let batch = batch_result.map_err(|e| e.to_string())?;
-            let batch_rows = batch.num_rows() as i64;
-            // determine if this batch belongs to a skipped rg
-            // advance rg_idx to consume batch rows
-            let mut batch_remaining = batch_rows;
-            let mut batch_offset = 0i64;
-            while batch_remaining > 0 && rg_idx < total_rgs {
-                let rg_remaining = rg_row_counts[rg_idx] - rows_seen_in_current_rg;
-                let take = batch_remaining.min(rg_remaining);
-                let is_skipped = skipped_rgs > 0 && !rgs_to_scan.contains(&rg_idx);
-                if !is_skipped {
-                    // slice the batch for this rg portion
-                    let slice = batch.slice(batch_offset as usize, take as usize);
-                    scanned_rows += take as u64;
-                    let mask = eval_predicate_batch(predicate, &slice);
-                    matched_rows += mask.true_count() as u64;
-                }
-                rows_seen_in_current_rg += take;
-                batch_offset += take;
-                batch_remaining -= take;
-                if rows_seen_in_current_rg >= rg_row_counts[rg_idx] {
-                    rg_idx += 1;
-                    rows_seen_in_current_rg = 0;
-                }
-            }
+            scanned_rows += batch.num_rows() as u64;
+            let mask = eval_predicate_batch(predicate, &batch);
+            matched_rows += mask.true_count() as u64;
         }
     }
     Ok(FilterResult {

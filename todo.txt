@@ -1,5 +1,4 @@
-(B) Fix full-scan: change mpsc channel in run_tui spawn_blocking from Sender<u64> to Sender<(u64, Vec<ColumnProfileResult>)> and capture profile_columns() return value before sending +bug +core
-(B) Fix full-scan: update app.progress_rx receiver in main event loop to unpack (rows_processed, results) tuple and assign results to app.full_scan_results on scan completion +bug +tui
+
 (B) Fix filter pushdown: replace manual batch-offset tracking loop in filter_count with .with_row_groups(rgs_to_scan) call on ParquetRecordBatchReaderBuilder before .build() so the reader skips non-matching row groups at the Arrow layer +bug +core
 (B) Fix filter pushdown: after implementing with_row_groups(), remove dead variables _rg_cursor and _rows_in_rg and the entire while batch_remaining > 0 rg-cursor tracking block from filter_count +cleanup +core
 (B) Implement --watch for local files: add the notify crate to workspace Cargo.toml and in run_tui when watch=true spawn a notify Watcher on the input path that sends reload events through a channel re-running load_file_stats and refreshing all App fields on each event +feature +core
