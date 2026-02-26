@@ -2,9 +2,6 @@
 
 
 
-(B) Add check subcommand to Commands enum in main.rs: Commands::Check { path: String, format: String, fail_on_regression: bool } +feature +cli
-(B) Implement run_check fn: calls rp(), load_file_stats, aggregate_column_stats, compute_quality_scores, load_baseline_regressions; prints regression list to stderr; if fail_on_regression and regressions non-empty returns Err to produce exit code 1 +feature +cli
-(B) Add --format json flag to check subcommand: when format=json emit BaselineRegression list as JSON array to stdout instead of plain text for CI parsing +feature +cli
 (B) Add --fail-on-regression flag to Inspect subcommand: after loading baseline in run_tui init block if regressions found and flag is set exit non-zero before launching TUI +feature +cli
 (B) Fix sidebar responsive width: replace Constraint::Length(30) in render() layout with Constraint::Percentage(25) bounded by a minimum of 18 chars for the sidebar pane +bug +tui
 (B) Add sidebar column name truncation: in render_sidebar compute available sidebar text width from the actual rendered Rect width and truncate column names to width-6 chars with a trailing ellipsis character when name exceeds available space +feature +tui
