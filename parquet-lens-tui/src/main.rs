@@ -171,9 +171,6 @@ async fn main() -> anyhow::Result<()> {
             save_baseline,
             sample_seed,
         } => {
-            if watch {
-                eprintln!("--watch: not yet implemented");
-            }
             run_tui(
                 path,
                 config,
@@ -181,6 +178,7 @@ async fn main() -> anyhow::Result<()> {
                 no_sample_extrapolation,
                 save_baseline,
                 sample_seed,
+                watch,
             )?
         }
         Commands::Summary {
@@ -223,6 +221,7 @@ fn run_tui(
     no_sample_extrapolation: bool,
     save_baseline: bool,
     sample_seed: Option<u64>,
+    watch: bool,
 ) -> anyhow::Result<()> {
     let paths = rp(&input_path)?;
     if paths.is_empty() {
@@ -277,7 +276,7 @@ fn run_tui(
     let compression_analysis = analyze_compression(&meta);
     let quality_scores = compute_quality_scores(&agg_stats, &encoding_analysis, total_rows);
 
-    let mut app = App::new(input_path, config);
+    let mut app = App::new(input_path.clone(), config);
     if let Some(s) = Session::load() {
         app.restore_from_session(&s);
     }
@@ -386,6 +385,37 @@ fn run_tui(
         app.status_msg = "Ready — q:quit ?:help".into();
     }
 
+    // --watch: local filesystem watcher
+    let _watcher_guard: Option<notify::RecommendedWatcher> = if watch && !is_s3_uri(&p0_str) && !is_gcs_uri(&p0_str) {
+        use notify::{Watcher, RecursiveMode, Config as NotifyConfig};
+        let (wtx, wrx) = std::sync::mpsc::channel::<()>();
+        let mut watcher = notify::RecommendedWatcher::new(
+            move |res: Result<notify::Event, notify::Error>| {
+                if let Ok(ev) = res {
+                    if ev.kind.is_modify() || ev.kind.is_create() {
+                        let _ = wtx.send(());
+                    }
+                }
+            },
+            NotifyConfig::default(),
+        ).map_err(|e| anyhow::anyhow!("watch init failed: {e}"))?;
+        let watch_path = std::path::Path::new(&input_path);
+        let watch_target = if watch_path.is_file() {
+            watch_path.parent().unwrap_or(watch_path)
+        } else {
+            watch_path
+        };
+        watcher.watch(watch_target, RecursiveMode::NonRecursive)
+            .map_err(|e| anyhow::anyhow!("watch failed: {e}"))?;
+        app.watch_rx = Some(wrx);
+        Some(watcher)
+    } else {
+        if watch {
+            app.status_msg = "--watch not supported for S3/GCS yet".into();
+        }
+        None
+    };
+
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
@@ -395,6 +425,31 @@ fn run_tui(
     let tick = Duration::from_millis(66); // 15Hz
     loop {
         terminal.draw(|f| render(f, &app))?;
+        // poll watch reload events
+        if let Some(ref wrx) = app.watch_rx {
+            if wrx.try_recv().is_ok() {
+                // drain any pending events
+                while wrx.try_recv().is_ok() {}
+                // reload file stats
+                if let Ok(new_paths) = rp(&app.input_path) {
+                    if let Ok((ds, fi, mt)) = load_file_stats(&new_paths) {
+                        let cs = read_column_stats(&mt);
+                        let tr = fi.row_count;
+                        app.dataset = Some(ds);
+                        app.file_info = Some(fi);
+                        app.row_groups = profile_row_groups(&mt);
+                        app.agg_stats = aggregate_column_stats(&cs, tr);
+                        app.encoding_analysis = analyze_encodings(&mt);
+                        app.compression_analysis = analyze_compression(&mt);
+                        app.quality_scores = compute_quality_scores(&app.agg_stats, &app.encoding_analysis, tr);
+                        app.repair_suggestions = detect_repair_suggestions(&app.row_groups, &app.agg_stats, &app.encoding_analysis);
+                        app.rg_size_recommendation = recommend_row_group_size(&app.row_groups);
+                        app.null_patterns = analyze_null_patterns(&app.agg_stats);
+                        app.status_msg = "Reloaded (file changed) — q:quit ?:help".into();
+                    }
+                }
+            }
+        }
         // spawn full-scan when pending flag is set
         if app.pending_full_scan {
             app.pending_full_scan = false;

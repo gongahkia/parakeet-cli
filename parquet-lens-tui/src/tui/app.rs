@@ -119,6 +119,7 @@ pub struct App {
     pub partition_infos: Vec<PartitionInfo>,
     pub theme: Theme,
     pub help_scroll: usize, // scroll offset for help keybind table
+    pub watch_rx: Option<std::sync::mpsc::Receiver<()>>, // reload events from filesystem watcher
 }
 
 impl App {
@@ -175,6 +176,7 @@ impl App {
             duplicate_report: None,
             partition_infos: Vec::new(),
             help_scroll: 0,
+            watch_rx: None,
         }
     }
     pub fn columns(&self) -> &[ColumnSchema] {

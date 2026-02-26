@@ -1,6 +1,5 @@
 
-(B) Fix filter pushdown: replace manual batch-offset tracking loop in filter_count with .with_row_groups(rgs_to_scan) call on ParquetRecordBatchReaderBuilder before .build() so the reader skips non-matching row groups at the Arrow layer +bug +core
-(B) Fix filter pushdown: after implementing with_row_groups(), remove dead variables _rg_cursor and _rows_in_rg and the entire while batch_remaining > 0 rg-cursor tracking block from filter_count +cleanup +core
+
 (B) Implement --watch for local files: add the notify crate to workspace Cargo.toml and in run_tui when watch=true spawn a notify Watcher on the input path that sends reload events through a channel re-running load_file_stats and refreshing all App fields on each event +feature +core
 (B) Implement --watch for S3/GCS: when --watch is set and path is an S3/GCS URI spawn a background tokio task that re-fetches metadata every --watch-interval seconds (default 30) and sends reload events to the same channel as local watch +feature +core
 (B) Add --watch-interval CLI arg to Inspect subcommand: u64 seconds default 5 for local and 30 for cloud; pass value into the watch loop implementation +feature +cli
