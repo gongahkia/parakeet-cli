@@ -158,6 +158,13 @@ enum Commands {
     Duplicates {
         path: String,
     },
+    Check {
+        path: String,
+        #[arg(long, default_value = "plain")]
+        format: String,
+        #[arg(long)]
+        fail_on_regression: bool,
+    },
 }
 
 #[tokio::main]
@@ -205,6 +212,7 @@ async fn main() -> anyhow::Result<()> {
             output,
         } => run_export(path, format, columns, output, config)?,
         Commands::Duplicates { path } => run_duplicates(path)?,
+        Commands::Check { path, format, fail_on_regression } => run_check(path, &format, fail_on_regression)?,
     }
     Ok(())
 }
@@ -244,6 +252,48 @@ fn run_duplicates(input_path: String) -> anyhow::Result<()> {
         "{:<24} {:.2}%",
         "estimated_duplicate_pct:", report.estimated_duplicate_pct
     );
+    Ok(())
+}
+
+fn run_check(input_path: String, format: &str, fail_on_regression: bool) -> anyhow::Result<()> {
+    let paths = rp(&input_path)?;
+    if paths.is_empty() {
+        anyhow::bail!("No Parquet files found: {input_path}");
+    }
+    let (dataset, _, meta) = load_file_stats(&paths)?;
+    let col_stats = read_column_stats(&meta);
+    let total_rows = dataset.total_rows;
+    let agg_stats = aggregate_column_stats(&col_stats, total_rows);
+    let encodings = analyze_encodings(&meta);
+    let quality_scores = compute_quality_scores(&agg_stats, &encodings, total_rows);
+    let schema: Vec<parquet_lens_core::ColumnSchema> = dataset
+        .combined_schema
+        .iter()
+        .map(|c| parquet_lens_core::ColumnSchema {
+            name: c.name.clone(),
+            physical_type: c.physical_type.clone(),
+            logical_type: c.logical_type.clone(),
+            repetition: c.repetition.clone(),
+            max_def_level: c.max_def_level,
+            max_rep_level: c.max_rep_level,
+        })
+        .collect();
+    let (_, regressions) =
+        load_baseline_regressions(&paths[0].path, &agg_stats, &quality_scores, &schema);
+    if format == "json" {
+        println!("{}", serde_json::to_string(&regressions)?);
+    } else {
+        if regressions.is_empty() {
+            eprintln!("check: no regressions detected");
+        } else {
+            for r in &regressions {
+                eprintln!("regression: {} — {}", r.column, r.detail);
+            }
+        }
+    }
+    if fail_on_regression && !regressions.is_empty() {
+        anyhow::bail!("{} regression(s) detected", regressions.len());
+    }
     Ok(())
 }
 

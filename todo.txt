@@ -2,8 +2,6 @@
 
 
 
-(B) Update run_duplicates: for S3/GCS paths download file bytes via read_s3_range or GCS range request into a tempfile::NamedTempFile then pass the temp path to detect_duplicates instead of the URI string +feature +core
-(B) Update run_duplicates: for S3/GCS paths download file bytes via read_s3_range or GCS range request into a tempfile::NamedTempFile then pass the temp path to detect_duplicates instead of the URI string +feature +core
 (B) Add check subcommand to Commands enum in main.rs: Commands::Check { path: String, format: String, fail_on_regression: bool } +feature +cli
 (B) Implement run_check fn: calls rp(), load_file_stats, aggregate_column_stats, compute_quality_scores, load_baseline_regressions; prints regression list to stderr; if fail_on_regression and regressions non-empty returns Err to produce exit code 1 +feature +cli
 (B) Add --format json flag to check subcommand: when format=json emit BaselineRegression list as JSON array to stdout instead of plain text for CI parsing +feature +cli
