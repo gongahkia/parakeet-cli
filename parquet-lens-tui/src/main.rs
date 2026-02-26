@@ -608,10 +608,10 @@ fn run_compare(path1: String, path2: String, config: Config) -> anyhow::Result<(
     if path2.is_empty() {
         anyhow::bail!("path2 is empty");
     }
-    if !std::path::Path::new(&path1).exists() {
+    if !is_s3_uri(&path1) && !is_gcs_uri(&path1) && !std::path::Path::new(&path1).exists() {
         anyhow::bail!("path1 not found: {path1}");
     }
-    if !std::path::Path::new(&path2).exists() {
+    if !is_s3_uri(&path2) && !is_gcs_uri(&path2) && !std::path::Path::new(&path2).exists() {
         anyhow::bail!("path2 not found: {path2}");
     }
     let paths1 = rp(&path1)?;
