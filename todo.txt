@@ -2,7 +2,6 @@
 
 
 
-(B) Add --fail-on-regression flag to Inspect subcommand: after loading baseline in run_tui init block if regressions found and flag is set exit non-zero before launching TUI +feature +cli
 (B) Fix sidebar responsive width: replace Constraint::Length(30) in render() layout with Constraint::Percentage(25) bounded by a minimum of 18 chars for the sidebar pane +bug +tui
 (B) Add sidebar column name truncation: in render_sidebar compute available sidebar text width from the actual rendered Rect width and truncate column names to width-6 chars with a trailing ellipsis character when name exceeds available space +feature +tui
 (B) Add [ and ] keybinds to resize sidebar width at runtime: store sidebar_width: u16 in App (default 30) clamped to 15..=60; persist to Session; apply in render() layout split +feature +tui
