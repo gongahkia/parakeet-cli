@@ -97,8 +97,13 @@ fn load_file_stats(
     paths: &[ParquetFilePath],
 ) -> anyhow::Result<(DatasetProfile, ParquetFileInfo, ParquetMetaData)> {
     let dataset = read_metadata_parallel(paths).map_err(|e| anyhow::anyhow!("{e}"))?;
-    let (file_info, meta) =
-        open_parquet_file(&paths[0].path).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let p0_str = paths[0].path.to_string_lossy().to_string();
+    let (file_info, meta) = tokio::task::block_in_place(|| {
+        tokio::runtime::Handle::current().block_on(
+            parquet_lens_core::open_parquet_auto(&p0_str, None),
+        )
+    })
+    .map_err(|e| anyhow::anyhow!("{e}"))?;
     Ok((dataset, file_info, meta))
 }
 
@@ -624,14 +629,19 @@ fn run_compare(path1: String, path2: String, config: Config) -> anyhow::Result<(
     }
     let dataset1 = read_metadata_parallel(&paths1).map_err(|e| anyhow::anyhow!("{e}"))?;
     let dataset2 = read_metadata_parallel(&paths2).map_err(|e| anyhow::anyhow!("{e}"))?;
-    let (file_info, meta) =
-        open_parquet_file(&paths1[0].path).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let p1_str = paths1[0].path.to_string_lossy().to_string();
+    let (file_info, meta) = tokio::task::block_in_place(|| {
+        tokio::runtime::Handle::current().block_on(parquet_lens_core::open_parquet_auto(&p1_str, None))
+    }).map_err(|e| anyhow::anyhow!("{e}"))?;
     let row_groups = profile_row_groups(&meta);
     let col_stats = read_column_stats(&meta);
     let total_rows = file_info.row_count;
     let agg_stats = aggregate_column_stats(&col_stats, total_rows);
     let encoding_analysis = analyze_encodings(&meta);
-    let (_, meta2) = open_parquet_file(&paths2[0].path).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let p2_str = paths2[0].path.to_string_lossy().to_string();
+    let (_, meta2) = tokio::task::block_in_place(|| {
+        tokio::runtime::Handle::current().block_on(parquet_lens_core::open_parquet_auto(&p2_str, None))
+    }).map_err(|e| anyhow::anyhow!("{e}"))?;
     let col_stats2 = read_column_stats(&meta2);
     let agg_stats2 = aggregate_column_stats(&col_stats2, dataset2.total_rows);
     let comparison = compare_datasets(&dataset1, &dataset2, &agg_stats, &agg_stats2);
