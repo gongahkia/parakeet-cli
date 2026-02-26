@@ -2,10 +2,7 @@
 
 
 
-(B) Create unified open_parquet_auto async fn in parquet-lens-core/src/reader.rs: dispatches to read_s3_parquet_metadata, read_gcs_parquet_metadata, or open_parquet_file based on URI prefix; returns (ParquetFileInfo, ParquetMetaData) with consistent ParquetFileInfo population for cloud paths +refactor +core
-(B) Update run_summary to use open_parquet_auto via block_in_place instead of calling open_parquet_file directly enabling S3/GCS Summary paths +feature +cli
-(B) Update run_compare to use open_parquet_auto for both path1 and path2 via block_in_place enabling cloud-path comparison +feature +cli
-(B) Update run_export to use open_parquet_auto via block_in_place for cloud-path export support +feature +cli
+(B) Update run_duplicates: for S3/GCS paths download file bytes via read_s3_range or GCS range request into a tempfile::NamedTempFile then pass the temp path to detect_duplicates instead of the URI string +feature +core
 (B) Update run_duplicates: for S3/GCS paths download file bytes via read_s3_range or GCS range request into a tempfile::NamedTempFile then pass the temp path to detect_duplicates instead of the URI string +feature +core
 (B) Add check subcommand to Commands enum in main.rs: Commands::Check { path: String, format: String, fail_on_regression: bool } +feature +cli
 (B) Implement run_check fn: calls rp(), load_file_stats, aggregate_column_stats, compute_quality_scores, load_baseline_regressions; prints regression list to stderr; if fail_on_regression and regressions non-empty returns Err to produce exit code 1 +feature +cli

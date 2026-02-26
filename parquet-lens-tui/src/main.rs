@@ -210,8 +210,31 @@ async fn main() -> anyhow::Result<()> {
 }
 
 fn run_duplicates(input_path: String) -> anyhow::Result<()> {
+    let dup_path = if is_s3_uri(&input_path) || is_gcs_uri(&input_path) {
+        // download to tempfile for cloud paths
+        let bytes = if is_s3_uri(&input_path) {
+            tokio::task::block_in_place(|| {
+                tokio::runtime::Handle::current()
+                    .block_on(parquet_lens_core::read_s3_range(&input_path, 0, i64::MAX, None))
+            })
+            .map_err(|e| anyhow::anyhow!("{e}"))?
+        } else {
+            // GCS: fetch full object
+            tokio::task::block_in_place(|| {
+                tokio::runtime::Handle::current()
+                    .block_on(parquet_lens_core::read_gcs_parquet_metadata(&input_path))
+            })
+            .map_err(|_| anyhow::anyhow!("GCS download not fully supported for duplicates"))?;
+            anyhow::bail!("GCS duplicate detection requires local file download (not yet implemented)");
+        };
+        let mut tmp = tempfile::NamedTempFile::new()?;
+        std::io::Write::write_all(&mut tmp, &bytes)?;
+        tmp.into_temp_path().to_path_buf()
+    } else {
+        std::path::PathBuf::from(&input_path)
+    };
     let report =
-        detect_duplicates(std::path::Path::new(&input_path)).map_err(|e| anyhow::anyhow!("{e}"))?;
+        detect_duplicates(&dup_path).map_err(|e| anyhow::anyhow!("{e}"))?;
     println!("{:<24} {}", "total_rows:", report.total_rows);
     println!(
         "{:<24} {}",

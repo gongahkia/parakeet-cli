@@ -29,3 +29,4 @@ ratatui = "0.28"
 crossterm = { version = "0.28", features = ["event-stream"] }
 futures = "0.3"
 notify = "6"
+tempfile = "3"
