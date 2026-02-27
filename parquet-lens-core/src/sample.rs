@@ -5,6 +5,8 @@ use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
 use parquet_lens_common::{ParquetLensError, Result};
 use std::path::Path;
 
+// seed: None produces non-deterministic results (defaults to seed=0 internally).
+// CI pipelines must always pass --sample-seed for reproducibility.
 pub struct SampleConfig {
     pub percentage: f64,        // 0.0–100.0
     pub no_extrapolation: bool, // when true, skip confidence extrapolation
@@ -20,6 +22,8 @@ pub struct SampledProfile {
     pub confidence_note: String,
 }
 
+// note: seed: None in SampleConfig produces non-deterministic results.
+// CI pipelines must always pass --sample-seed for reproducibility.
 pub fn sample_row_groups(
     path: &Path,
     config: &SampleConfig,
