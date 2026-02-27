@@ -341,6 +341,7 @@ impl App {
             View::Baseline => "baseline",
             View::Duplicates => "duplicates",
             View::Partitions => "partitions",
+            View::WatchLog => "watch_log",
             _ => "overview",
         };
         let mode = match self.profiling_mode {
@@ -388,6 +389,8 @@ impl App {
             "baseline" => View::Baseline,
             "duplicates" => View::Duplicates,
             "partitions" => View::Partitions,
+            "filter_input" => View::FilterInput,
+            "watch_log" => View::WatchLog,
             _ => View::FileOverview,
         };
         self.profiling_mode = if s.profiling_mode == "full_scan" {
