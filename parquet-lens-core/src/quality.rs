@@ -225,6 +225,12 @@ pub fn detect_duplicates(path: &Path, exact: bool) -> Result<DuplicateReport> {
         }
     } else {
         // bloom filter: 1% false positive rate, capped at 50M to prevent OOM
+        if total_rows_estimate > 10_000_000 {
+            eprintln!(
+                "warning: bloom filter for {} rows may use significant memory; consider --exact for authoritative results",
+                total_rows_estimate
+            );
+        }
         let bloom_size = total_rows_estimate.clamp(1000, 50_000_000);
         let mut bloom: Bloom<u64> = Bloom::new_for_fp_rate(bloom_size, 0.01);
         for batch_result in reader {
