@@ -64,12 +64,14 @@ pub fn read_metadata_parallel(paths: &[ParquetFilePath]) -> Result<DatasetProfil
     // check schema consistency across all files vs first file
     let mut schema_inconsistencies = Vec::new();
     if paths.len() > 1 {
-        let ref_col_names: Vec<&str> = combined_schema.iter().map(|c| c.name.as_str()).collect();
+        let ref_col_names: std::collections::HashSet<&str> =
+            combined_schema.iter().map(|c| c.name.as_str()).collect(); // O(1) lookup
         for pf in &paths[1..] {
             if let Ok(other_schema) = extract_schema(&pf.path) {
-                let other_names: Vec<&str> = other_schema.iter().map(|c| c.name.as_str()).collect();
+                let other_names: std::collections::HashSet<&str> =
+                    other_schema.iter().map(|c| c.name.as_str()).collect(); // O(1) lookup
                 for &name in &ref_col_names {
-                    if !other_names.contains(&name) {
+                    if !other_names.contains(name) {
                         schema_inconsistencies.push(format!(
                             "{}: missing column '{}'",
                             pf.path.display(),
@@ -78,7 +80,7 @@ pub fn read_metadata_parallel(paths: &[ParquetFilePath]) -> Result<DatasetProfil
                     }
                 }
                 for &name in &other_names {
-                    if !ref_col_names.contains(&name) {
+                    if !ref_col_names.contains(name) {
                         schema_inconsistencies.push(format!(
                             "{}: extra column '{}'",
                             pf.path.display(),
@@ -87,15 +89,17 @@ pub fn read_metadata_parallel(paths: &[ParquetFilePath]) -> Result<DatasetProfil
                     }
                 }
                 // type mismatches
+                let other_type_map: std::collections::HashMap<&str, &str> =
+                    other_schema.iter().map(|c| (c.name.as_str(), c.physical_type.as_str())).collect();
                 for col in &combined_schema {
-                    if let Some(other_col) = other_schema.iter().find(|c| c.name == col.name) {
-                        if other_col.physical_type != col.physical_type {
+                    if let Some(&other_type) = other_type_map.get(col.name.as_str()) {
+                        if other_type != col.physical_type.as_str() {
                             schema_inconsistencies.push(format!(
                                 "{}: column '{}' type {} vs {}",
                                 pf.path.display(),
                                 col.name,
                                 col.physical_type,
-                                other_col.physical_type
+                                other_type
                             ));
                         }
                     }
