@@ -226,12 +226,22 @@ fn tokenize(input: &str) -> Vec<String> {
             continue;
         }
         if c == '\'' || c == '"' {
-            // string literal
+            // string literal with escape sequence support (\' and \" don't end the token)
             let q = c;
             let mut s = String::from(c);
             chars.next();
             loop {
                 match chars.next() {
+                    Some('\\') => {
+                        // consume backslash; if next char is a quote push it literally
+                        if let Some(&next) = chars.peek() {
+                            if next == '\'' || next == '"' {
+                                s.push(chars.next().unwrap());
+                                continue;
+                            }
+                        }
+                        s.push('\\');
+                    }
                     Some(ch) if ch == q => {
                         s.push(ch);
                         break;
