@@ -56,17 +56,27 @@ pub async fn list_gcs_parquet(uri: &str) -> Result<Vec<String>> {
     Ok(keys)
 }
 
-/// read Parquet metadata from GCS object
+/// read Parquet metadata from GCS object (uses ADC or metadata server)
 pub async fn read_gcs_parquet_metadata(uri: &str) -> Result<ParquetMetaData> {
-    let bytes = fetch_gcs_bytes(uri).await?;
+    read_gcs_parquet_metadata_with_creds(uri, None).await
+}
+
+/// read Parquet metadata from GCS object with optional credentials_file path.
+/// If credentials_file is None, falls back to GOOGLE_APPLICATION_CREDENTIALS env var,
+/// then to the GCE metadata server.
+pub async fn read_gcs_parquet_metadata_with_creds(
+    uri: &str,
+    credentials_file: Option<&str>,
+) -> Result<ParquetMetaData> {
+    let bytes = fetch_gcs_bytes(uri, credentials_file).await?;
     let reader = SerializedFileReader::new(bytes).map_err(ParquetLensError::Parquet)?;
     Ok(reader.metadata().clone())
 }
 
-async fn fetch_gcs_bytes(uri: &str) -> Result<Bytes> {
+async fn fetch_gcs_bytes(uri: &str, credentials_file: Option<&str>) -> Result<Bytes> {
     let gcs_uri = parse_gcs_uri(uri)
         .ok_or_else(|| ParquetLensError::Other(format!("invalid GCS URI: {uri}")))?;
-    let token = get_adc_token().await?;
+    let token = get_adc_token(credentials_file).await?;
     let url = format!(
         "https://storage.googleapis.com/storage/v1/b/{}/o/{}?alt=media",
         gcs_uri.bucket,
@@ -92,9 +102,26 @@ async fn fetch_gcs_bytes(uri: &str) -> Result<Bytes> {
     Ok(bytes)
 }
 
-/// fetch application default credentials token from metadata server or env
-async fn get_adc_token() -> Result<String> {
-    // check GOOGLE_APPLICATION_CREDENTIALS env — minimal implementation uses metadata server
+/// fetch application default credentials token.
+/// Priority: credentials_file param → GOOGLE_APPLICATION_CREDENTIALS env → GCE metadata server
+async fn get_adc_token(credentials_file: Option<&str>) -> Result<String> {
+    let creds_path = credentials_file
+        .map(|s| s.to_owned())
+        .or_else(|| std::env::var("GOOGLE_APPLICATION_CREDENTIALS").ok());
+    if let Some(path) = creds_path {
+        // credentials file present — read and validate it (SA JSON key)
+        // full JWT-based token exchange is a future improvement; validate path at minimum
+        if !std::path::Path::new(&path).exists() {
+            return Err(ParquetLensError::Auth(format!(
+                "credentials_file not found: {path}"
+            )));
+        }
+        // TODO: implement JWT token exchange from service account key JSON
+        return Err(ParquetLensError::Auth(
+            "service account JSON auth not yet implemented; unset GOOGLE_APPLICATION_CREDENTIALS to use metadata server".into(),
+        ));
+    }
+    // fall back to GCE metadata server
     let client = reqwest::Client::new();
     let url = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token";
     let resp = client
