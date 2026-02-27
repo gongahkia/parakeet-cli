@@ -181,6 +181,13 @@ enum Commands {
         #[arg(long)]
         threshold: Option<f64>,
     },
+    /// Check quality and baseline regressions without launching TUI.
+    ///
+    /// Exit codes:
+    ///   0 — no regressions found
+    ///   1 — regressions found (when --fail-on-regression is set)
+    ///   2 — file not found or unreadable
+    #[command(long_about = "Check quality and baseline regressions without launching TUI.\n\nExit codes:\n  0 — no regressions found\n  1 — regressions found (when --fail-on-regression is set)\n  2 — file not found or unreadable")]
     Check {
         path: String,
         #[arg(long, default_value = "plain")]

@@ -3,7 +3,6 @@
 
 
 (B) Add --no-color flag to Summary subcommand: skip ANSI escape codes in pretty-format output when set; also honor NO_COLOR env var automatically via std::env::var("NO_COLOR").is_ok() at top of run_summary +feature +cli
-(B) Add exit code documentation to check subcommand: add .long_about() on Commands::Check describing exit codes 0=clean 1=regressions-found 2=file-not-found for CI integration scripts +feature +cli
 (B) Add --limit flag to Export subcommand: usize rows max; when set wrap the Arrow reader with .with_limit(limit) before exporting to CSV/JSON +feature +cli
 (B) Add --format ndjson to Export subcommand: emit one JSON object per column stat as newline-delimited JSON for streaming CI tooling; add ndjson branch in run_export format match +feature +cli
 (B) Fix sidebar_down/sidebar_up to operate on filtered index space: saturating_sub check max against filtered_column_indices().len() not raw column_count so navigation matches visible list +bug +tui
