@@ -3,7 +3,6 @@
 
 
 (B) Add --no-color flag to Summary subcommand: skip ANSI escape codes in pretty-format output when set; also honor NO_COLOR env var automatically via std::env::var("NO_COLOR").is_ok() at top of run_summary +feature +cli
-(B) Fix sidebar_down/sidebar_up to operate on filtered index space: saturating_sub check max against filtered_column_indices().len() not raw column_count so navigation matches visible list +bug +tui
 (B) Fix load_file_stats multi-file documentation: add doc comment on load_file_stats noting that returned meta is first-file-only and callers needing aggregate stats must use read_metadata_parallel separately +stability +core
 (B) Add bloom filter size warning in detect_duplicates: if total_rows_estimate > 10_000_000 emit eprintln! warning before Bloom::new_for_fp_rate noting memory usage and recommending --exact flag +stability +core
 (B) Wire profile_columns_with_timeout in run_tui spawn_blocking: when config.profiling.full_scan_timeout_secs is Some(t) call profile_columns_with_timeout with Duration::from_secs(t) instead of profile_columns +feature +tui

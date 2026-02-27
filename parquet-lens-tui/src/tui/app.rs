@@ -202,7 +202,7 @@ impl App {
             .unwrap_or(0)
     }
     pub fn sidebar_down(&mut self) {
-        let max = self.column_count().saturating_sub(1);
+        let max = self.filtered_column_indices().len().saturating_sub(1);
         if self.sidebar_selected < max {
             self.sidebar_selected += 1;
         }
