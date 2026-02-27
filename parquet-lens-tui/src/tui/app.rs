@@ -121,6 +121,7 @@ pub struct App {
     pub help_scroll: usize, // scroll offset for help keybind table
     pub watch_rx: Option<std::sync::mpsc::Receiver<()>>, // reload events from filesystem watcher
     pub sidebar_width: u16, // runtime-adjustable sidebar width, clamped 15..=60
+    pub sidebar_visible: bool, // backtick toggle; also auto-hidden when terminal < 80 cols
 }
 
 impl App {
@@ -180,6 +181,7 @@ impl App {
             help_scroll: 0,
             watch_rx: None,
             sidebar_width,
+            sidebar_visible: true,
         }
     }
     pub fn columns(&self) -> &[ColumnSchema] {

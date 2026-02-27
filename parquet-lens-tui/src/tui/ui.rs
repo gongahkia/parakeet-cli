@@ -22,13 +22,21 @@ pub fn render(frame: &mut Frame, app: &App) {
         ])
         .split(area);
     render_topbar(frame, app, chunks[0], theme);
-    let sidebar_w = app.sidebar_width; // runtime-adjustable, clamped 15..=60
-    let mid = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Length(sidebar_w), Constraint::Min(0)])
-        .split(chunks[1]);
-    render_sidebar(frame, app, mid[0], theme);
-    render_main(frame, app, mid[1], theme);
+    let show_sidebar = app.sidebar_visible && area.width >= 80;
+    let (sidebar_area, main_area) = if show_sidebar {
+        let sidebar_w = app.sidebar_width;
+        let mid = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Length(sidebar_w), Constraint::Min(0)])
+            .split(chunks[1]);
+        (Some(mid[0]), mid[1])
+    } else {
+        (None, chunks[1])
+    };
+    if let Some(sa) = sidebar_area {
+        render_sidebar(frame, app, sa, theme);
+    }
+    render_main(frame, app, main_area, theme);
     render_bottombar(frame, app, chunks[2], theme);
     if app.view == View::Help {
         render_help(frame, app, area);

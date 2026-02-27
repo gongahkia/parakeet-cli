@@ -39,6 +39,10 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
             app.cycle_profiling_mode();
             return;
         }
+        KeyCode::Char('`') => {
+            app.sidebar_visible = !app.sidebar_visible;
+            return;
+        }
         _ => {}
     }
     match app.focus {
