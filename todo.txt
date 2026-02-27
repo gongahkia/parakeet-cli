@@ -2,10 +2,6 @@
 
 
 
-(B) Add profile_timeseries output to export_json: include timeseries_profiles field in the JSON export document when timeseries data is non-empty +feature +core
-(B) Add profile_nested_columns output to export_json: include nested_profiles field in JSON export document +feature +core
-(B) Add repair_suggestions to export_json: include repair_suggestions field in JSON export document +feature +core
-(B) Add row groups export to export_csv: write a second CSV file row_groups.csv to the same output directory containing RowGroupProfile data (index, row_count, total_byte_size, compression) +feature +core
 (B) Fix filter_count column path comparison: replace schema_names string equality check with cm.column_descr().path_in_schema().string() comparison so nested column dot-notation paths are matched correctly +bug +core
 (B) Add Decimal128 type support to build_mask in filter.rs: add downcast_ref::<Decimal128Array> branch with scale-aware f64 conversion for Eq/Ne/Lt/Le/Gt/Ge comparison ops +feature +core
 (B) Add Date32/Date64 type support to build_mask in filter.rs: add downcast_ref::<Date32Array> and Date64Array branches comparing days-since-epoch as i64 values +feature +core

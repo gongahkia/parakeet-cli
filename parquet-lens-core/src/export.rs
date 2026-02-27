@@ -1,9 +1,12 @@
 use crate::baseline::BaselineRegression;
 use crate::engine::EngineInfo;
+use crate::nested::NestedColumnProfile;
 use crate::null_patterns::NullPatternGroup;
 use crate::parallel_reader::DatasetProfile;
 use crate::quality::{DatasetQuality, QualityScore};
+use crate::repair::RepairSuggestion;
 use crate::stats::{AggregatedColumnStats, RowGroupProfile};
+use crate::timeseries::TimeSeriesProfile;
 use parquet_lens_common::Result;
 use serde_json;
 use std::io::Write;
@@ -37,6 +40,9 @@ pub fn export_json(
     null_patterns: &[NullPatternGroup],
     engine_info: Option<&EngineInfo>,
     baseline_regressions: &[BaselineRegression],
+    timeseries_profiles: &[TimeSeriesProfile],
+    nested_profiles: &[NestedColumnProfile],
+    repair_suggestions: &[RepairSuggestion],
 ) -> Result<()> {
     let mut doc = serde_json::json!({
         "dataset": dataset,
@@ -48,6 +54,15 @@ pub fn export_json(
     });
     if let Some(ei) = engine_info {
         doc["engine_info"] = serde_json::to_value(ei).unwrap_or(serde_json::Value::Null);
+    }
+    if !timeseries_profiles.is_empty() {
+        doc["timeseries_profiles"] = serde_json::to_value(timeseries_profiles).unwrap_or(serde_json::Value::Null);
+    }
+    if !nested_profiles.is_empty() {
+        doc["nested_profiles"] = serde_json::to_value(nested_profiles).unwrap_or(serde_json::Value::Null);
+    }
+    if !repair_suggestions.is_empty() {
+        doc["repair_suggestions"] = serde_json::to_value(repair_suggestions).unwrap_or(serde_json::Value::Null);
     }
     let mut file = std::fs::File::create(output_path)?;
     serde_json::to_writer_pretty(&mut file, &doc)
@@ -61,6 +76,7 @@ pub fn export_csv(
     output_path: &Path,
     agg_stats: &[AggregatedColumnStats],
     quality_scores: &[QualityScore],
+    row_groups: &[RowGroupProfile],
 ) -> Result<()> {
     let mut file = std::fs::File::create(output_path)?;
     writeln!(file, "column_name,type,null_rate,cardinality,data_size_bytes,compressed_size_bytes,compression_ratio,quality_score,breakdown")?;
@@ -92,6 +108,15 @@ pub fn export_csv(
             quality,
             breakdown,
         )?;
+    }
+    // write row_groups.csv to sibling path
+    if !row_groups.is_empty() {
+        let rg_path = output_path.with_file_name("row_groups.csv");
+        let mut rg_file = std::fs::File::create(&rg_path)?;
+        writeln!(rg_file, "index,row_count,total_byte_size,compressed_size,compression_ratio")?;
+        for rg in row_groups {
+            writeln!(rg_file, "{},{},{},{},{:.4}", rg.index, rg.num_rows, rg.total_byte_size, rg.compressed_size, rg.compression_ratio)?;
+        }
     }
     Ok(())
 }

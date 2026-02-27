@@ -198,6 +198,9 @@ fn handle_sidebar(app: &mut App, key: KeyEvent) {
                     &null_patterns,
                     engine_info.as_ref(),
                     &baseline_regressions,
+                    &app.timeseries_profiles,
+                    &app.nested_profiles,
+                    &app.repair_suggestions,
                 ) {
                     Ok(_) => {
                         app.status_msg = format!("exported to {}", out_path.display());

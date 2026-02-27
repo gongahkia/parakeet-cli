@@ -1122,6 +1122,9 @@ fn run_export(
         .collect::<Vec<_>>();
     let (_, baseline_regressions) =
         load_baseline_regressions(&paths[0].path, &agg_stats, &quality_scores, &schema);
+    let timeseries_profiles = parquet_lens_core::profile_timeseries(&paths[0].path, &[]).unwrap_or_default();
+    let nested_profiles = parquet_lens_core::profile_nested_columns(&paths[0].path).unwrap_or_default();
+    let repair_suggestions = detect_repair_suggestions(&row_groups, &agg_stats, &encodings);
     match format.as_str() {
         "json" => {
             export_json(
@@ -1133,12 +1136,15 @@ fn run_export(
                 &null_patterns,
                 engine_info.as_ref(),
                 &baseline_regressions,
+                &timeseries_profiles,
+                &nested_profiles,
+                &repair_suggestions,
             )
             .map_err(|e| anyhow::anyhow!("{e}"))?;
             println!("Exported to {}", out_path.display());
         }
         "csv" => {
-            export_csv(&out_path, &agg_stats, &quality_scores)
+            export_csv(&out_path, &agg_stats, &quality_scores, &row_groups)
                 .map_err(|e| anyhow::anyhow!("{e}"))?;
             println!("Exported to {}", out_path.display());
         }
