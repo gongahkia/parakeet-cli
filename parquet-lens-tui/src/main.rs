@@ -588,6 +588,17 @@ fn run_tui(
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
+    // SIGTERM handler: restore terminal before process exits to prevent corruption
+    ctrlc::set_handler(move || {
+        let _ = crossterm::terminal::disable_raw_mode();
+        let _ = crossterm::execute!(
+            std::io::stdout(),
+            crossterm::terminal::LeaveAlternateScreen
+        );
+        std::process::exit(0);
+    })
+    .ok();
+
     let tick = Duration::from_millis(66); // 15Hz
     loop {
         terminal.draw(|f| render(f, &app))?;
