@@ -170,6 +170,10 @@ enum Commands {
         /// Force HashSet-based exact dedup regardless of row count
         #[arg(long)]
         exact: bool,
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        threshold: Option<f64>,
     },
     Check {
         path: String,
@@ -243,7 +247,7 @@ async fn main() -> anyhow::Result<()> {
             sample,
             sample_seed,
         } => run_export(path, format, columns, output, sample, sample_seed, config)?,
-        Commands::Duplicates { path, exact } => run_duplicates(path, exact)?,
+        Commands::Duplicates { path, exact, json, threshold } => run_duplicates(path, exact, json, threshold)?,
         Commands::Check { path, format, fail_on_regression } => run_check(path, &format, fail_on_regression)?,
         Commands::Filter { path, expr, output, limit } => run_filter(path, expr, output, limit)?,
         Commands::Schema { path, json } => run_schema(path, json)?,
@@ -251,7 +255,7 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn run_duplicates(input_path: String, exact: bool) -> anyhow::Result<()> {
+fn run_duplicates(input_path: String, exact: bool, json: bool, threshold: Option<f64>) -> anyhow::Result<()> {
     let dup_path = if is_s3_uri(&input_path) || is_gcs_uri(&input_path) {
         // download to tempfile for cloud paths
         let bytes = if is_s3_uri(&input_path) {
@@ -277,15 +281,19 @@ fn run_duplicates(input_path: String, exact: bool) -> anyhow::Result<()> {
     };
     let report =
         detect_duplicates(&dup_path, exact).map_err(|e| anyhow::anyhow!("{e}"))?;
-    println!("{:<24} {}", "total_rows:", report.total_rows);
-    println!(
-        "{:<24} {}",
-        "estimated_duplicates:", report.estimated_duplicates
-    );
-    println!(
-        "{:<24} {:.2}%",
-        "estimated_duplicate_pct:", report.estimated_duplicate_pct
-    );
+    if json {
+        println!("{}", serde_json::to_string_pretty(&report)?);
+    } else {
+        println!("{:<24} {}", "total_rows:", report.total_rows);
+        println!("{:<24} {}", "estimated_duplicates:", report.estimated_duplicates);
+        println!("{:<24} {:.2}%", "estimated_duplicate_pct:", report.estimated_duplicate_pct);
+    }
+    if let Some(thr) = threshold {
+        if report.estimated_duplicate_pct > thr {
+            eprintln!("FAIL: duplicate rate {:.2}% exceeds threshold {:.2}%", report.estimated_duplicate_pct, thr);
+            std::process::exit(1);
+        }
+    }
     Ok(())
 }
 

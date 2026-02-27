@@ -2,10 +2,6 @@
 
 
 
-(B) Fix full_scan_results not rendered in TUI: in render_column_detail when app.profiling_mode == FullScan and app.full_scan_results is non-empty display histogram bins and numeric profile data from the matching ColumnProfileResult for the selected column +bug +tui
-(B) Add baseline_captured_at human-readable display: in render_baseline TUI view format app.baseline_captured_at unix timestamp using chrono::DateTime::from_timestamp as YYYY-MM-DD HH:MM:SS UTC string instead of raw seconds +feature +tui
-(B) Add --json flag to Duplicates subcommand: emit DuplicateReport as serde_json to stdout when --json is passed +feature +cli
-(B) Add --threshold flag to Duplicates subcommand: f64 percentage; exit non-zero if estimated_duplicate_pct exceeds threshold; enables use as pipeline quality gate +feature +cli
 (B) Add --columns flag to Summary subcommand: Vec<String> via value_delimiter=','; filter column-level quality scores to named columns only in run_summary output +feature +cli
 (B) Add --validate flag to Inspect subcommand: when set skip TUI launch; run detect_repair_suggestions, load_baseline_regressions, summarize_quality; print results to stdout; exit 0 if no issues exit 1 if issues found +feature +cli
 (B) Add profile_timeseries output to export_json: include timeseries_profiles field in the JSON export document when timeseries data is non-empty +feature +core
