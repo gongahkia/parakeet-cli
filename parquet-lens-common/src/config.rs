@@ -90,6 +90,12 @@ impl Default for ExportConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct GcsConfig {
+    pub project_id: Option<String>,
+    pub credentials_file: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
     #[serde(default)]
     pub display: DisplayConfig,
@@ -99,6 +105,8 @@ pub struct Config {
     pub s3: S3Config,
     #[serde(default)]
     pub export: ExportConfig,
+    #[serde(default)]
+    pub gcs: GcsConfig,
 }
 
 impl Config {
