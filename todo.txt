@@ -1,6 +1,1 @@
 
-
-
-
-(B) Add --no-color flag to Summary subcommand: skip ANSI escape codes in pretty-format output when set; also honor NO_COLOR env var automatically via std::env::var("NO_COLOR").is_ok() at top of run_summary +feature +cli
-(B) Wire profile_columns_with_timeout in run_tui spawn_blocking: when config.profiling.full_scan_timeout_secs is Some(t) call profile_columns_with_timeout with Duration::from_secs(t) instead of profile_columns +feature +tui
