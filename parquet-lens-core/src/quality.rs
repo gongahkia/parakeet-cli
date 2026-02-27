@@ -137,104 +137,118 @@ pub struct DuplicateReport {
     pub estimated_duplicate_pct: f64,
 }
 
-pub fn detect_duplicates(path: &Path) -> Result<DuplicateReport> {
-    use bloomfilter::Bloom;
+/// Hash a single row across all columns into a u64 fingerprint.
+fn hash_row(batch: &arrow::record_batch::RecordBatch, row: usize) -> u64 {
     use xxhash_rust::xxh3::xxh3_64;
+    let mut row_bytes = Vec::new();
+    for col in batch.columns() {
+        if !col.is_null(row) {
+            match col.data_type() {
+                arrow::datatypes::DataType::Int32 => {
+                    if let Some(arr) = col.as_any().downcast_ref::<arrow::array::Int32Array>() {
+                        row_bytes.extend_from_slice(&arr.value(row).to_le_bytes());
+                    }
+                }
+                arrow::datatypes::DataType::Int64 => {
+                    if let Some(arr) = col.as_any().downcast_ref::<arrow::array::Int64Array>() {
+                        row_bytes.extend_from_slice(&arr.value(row).to_le_bytes());
+                    }
+                }
+                arrow::datatypes::DataType::Float32 => {
+                    if let Some(arr) = col.as_any().downcast_ref::<arrow::array::Float32Array>() {
+                        row_bytes.extend_from_slice(&arr.value(row).to_le_bytes());
+                    }
+                }
+                arrow::datatypes::DataType::Float64 => {
+                    if let Some(arr) = col.as_any().downcast_ref::<arrow::array::Float64Array>() {
+                        row_bytes.extend_from_slice(&arr.value(row).to_le_bytes());
+                    }
+                }
+                arrow::datatypes::DataType::Boolean => {
+                    if let Some(arr) = col.as_any().downcast_ref::<arrow::array::BooleanArray>() {
+                        row_bytes.push(arr.value(row) as u8);
+                    }
+                }
+                arrow::datatypes::DataType::Utf8 => {
+                    if let Some(arr) = col.as_any().downcast_ref::<arrow::array::StringArray>() {
+                        row_bytes.extend_from_slice(arr.value(row).as_bytes());
+                    }
+                }
+                arrow::datatypes::DataType::LargeUtf8 => {
+                    if let Some(arr) =
+                        col.as_any().downcast_ref::<arrow::array::LargeStringArray>()
+                    {
+                        row_bytes.extend_from_slice(arr.value(row).as_bytes());
+                    }
+                }
+                _ => row_bytes.push(0u8),
+            }
+        } else {
+            row_bytes.push(0xFF);
+        }
+    }
+    xxh3_64(&row_bytes)
+}
+
+/// Detect duplicate rows. For files with <= 5_000_000 rows (or when exact=true),
+/// uses a HashSet<u64> for authoritative counts. Otherwise uses a bloom filter
+/// (~1% false-positive rate) to keep memory bounded.
+pub fn detect_duplicates(path: &Path, exact: bool) -> Result<DuplicateReport> {
+    use bloomfilter::Bloom;
 
     let file = std::fs::File::open(path)?;
     let builder =
         ParquetRecordBatchReaderBuilder::try_new(file).map_err(ParquetLensError::Parquet)?;
-    // estimate row count from metadata for bloom sizing
+    // estimate row count from metadata for bloom sizing / exact threshold
     let total_rows_estimate = builder.metadata().file_metadata().num_rows().max(1) as usize;
     let reader = builder
         .with_batch_size(65536)
         .build()
         .map_err(ParquetLensError::Parquet)?;
-    // bloom filter: 1% false positive rate, capped at 50M to prevent OOM
-    let bloom_size = total_rows_estimate.clamp(1000, 50_000_000);
-    let mut bloom: Bloom<u64> = Bloom::new_for_fp_rate(bloom_size, 0.01);
+
+    let use_exact = exact || total_rows_estimate <= 5_000_000; // exact threshold: 5M rows
     let mut total_rows = 0u64;
-    let mut estimated_dups = 0u64;
-    for batch_result in reader {
-        let batch = batch_result.map_err(ParquetLensError::Arrow)?;
-        for row in 0..batch.num_rows() {
-            let mut row_bytes = Vec::new();
-            for col in batch.columns() {
-                if !col.is_null(row) {
-                    match col.data_type() {
-                        arrow::datatypes::DataType::Int32 => {
-                            if let Some(arr) =
-                                col.as_any().downcast_ref::<arrow::array::Int32Array>()
-                            {
-                                row_bytes.extend_from_slice(&arr.value(row).to_le_bytes());
-                            }
-                        }
-                        arrow::datatypes::DataType::Int64 => {
-                            if let Some(arr) =
-                                col.as_any().downcast_ref::<arrow::array::Int64Array>()
-                            {
-                                row_bytes.extend_from_slice(&arr.value(row).to_le_bytes());
-                            }
-                        }
-                        arrow::datatypes::DataType::Float32 => {
-                            if let Some(arr) =
-                                col.as_any().downcast_ref::<arrow::array::Float32Array>()
-                            {
-                                row_bytes.extend_from_slice(&arr.value(row).to_le_bytes());
-                            }
-                        }
-                        arrow::datatypes::DataType::Float64 => {
-                            if let Some(arr) =
-                                col.as_any().downcast_ref::<arrow::array::Float64Array>()
-                            {
-                                row_bytes.extend_from_slice(&arr.value(row).to_le_bytes());
-                            }
-                        }
-                        arrow::datatypes::DataType::Boolean => {
-                            if let Some(arr) =
-                                col.as_any().downcast_ref::<arrow::array::BooleanArray>()
-                            {
-                                row_bytes.push(arr.value(row) as u8);
-                            }
-                        }
-                        arrow::datatypes::DataType::Utf8 => {
-                            if let Some(arr) =
-                                col.as_any().downcast_ref::<arrow::array::StringArray>()
-                            {
-                                row_bytes.extend_from_slice(arr.value(row).as_bytes());
-                            }
-                        }
-                        arrow::datatypes::DataType::LargeUtf8 => {
-                            if let Some(arr) = col
-                                .as_any()
-                                .downcast_ref::<arrow::array::LargeStringArray>()
-                            {
-                                row_bytes.extend_from_slice(arr.value(row).as_bytes());
-                            }
-                        }
-                        _ => row_bytes.push(0u8),
-                    }
-                } else {
-                    row_bytes.push(0xFF);
+    let mut dups = 0u64;
+
+    if use_exact {
+        let mut seen: std::collections::HashSet<u64> =
+            std::collections::HashSet::with_capacity(total_rows_estimate.min(5_000_000));
+        for batch_result in reader {
+            let batch = batch_result.map_err(ParquetLensError::Arrow)?;
+            for row in 0..batch.num_rows() {
+                let hash = hash_row(&batch, row);
+                if !seen.insert(hash) {
+                    dups += 1;
                 }
+                total_rows += 1;
             }
-            let hash = xxh3_64(&row_bytes);
-            if bloom.check(&hash) {
-                estimated_dups += 1;
-            } else {
-                bloom.set(&hash);
+        }
+    } else {
+        // bloom filter: 1% false positive rate, capped at 50M to prevent OOM
+        let bloom_size = total_rows_estimate.clamp(1000, 50_000_000);
+        let mut bloom: Bloom<u64> = Bloom::new_for_fp_rate(bloom_size, 0.01);
+        for batch_result in reader {
+            let batch = batch_result.map_err(ParquetLensError::Arrow)?;
+            for row in 0..batch.num_rows() {
+                let hash = hash_row(&batch, row);
+                if bloom.check(&hash) {
+                    dups += 1;
+                } else {
+                    bloom.set(&hash);
+                }
+                total_rows += 1;
             }
-            total_rows += 1;
         }
     }
+
     let estimated_duplicate_pct = if total_rows > 0 {
-        estimated_dups as f64 / total_rows as f64 * 100.0
+        dups as f64 / total_rows as f64 * 100.0
     } else {
         0.0
     };
     Ok(DuplicateReport {
         total_rows,
-        estimated_duplicates: estimated_dups,
+        estimated_duplicates: dups,
         estimated_duplicate_pct,
     })
 }

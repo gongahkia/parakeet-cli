@@ -246,7 +246,7 @@ fn run_duplicates(input_path: String) -> anyhow::Result<()> {
         std::path::PathBuf::from(&input_path)
     };
     let report =
-        detect_duplicates(&dup_path).map_err(|e| anyhow::anyhow!("{e}"))?;
+        detect_duplicates(&dup_path, false).map_err(|e| anyhow::anyhow!("{e}"))?;
     println!("{:<24} {}", "total_rows:", report.total_rows);
     println!(
         "{:<24} {}",
@@ -655,7 +655,7 @@ fn run_tui(
             let (tx, rx) = std::sync::mpsc::channel::<Result<parquet_lens_core::DuplicateReport, String>>();
             app.duplicate_rx = Some(rx);
             tokio::task::spawn_blocking(move || {
-                let res = detect_duplicates(&path).map_err(|e| e.to_string());
+                let res = detect_duplicates(&path, false).map_err(|e| e.to_string());
                 let _ = tx.send(res);
             });
         }
