@@ -22,9 +22,10 @@ pub fn render(frame: &mut Frame, app: &App) {
         ])
         .split(area);
     render_topbar(frame, app, chunks[0], theme);
+    let sidebar_w = (chunks[1].width / 4).max(18); // 25% width, min 18
     let mid = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Length(30), Constraint::Min(0)])
+        .constraints([Constraint::Length(sidebar_w), Constraint::Min(0)])
         .split(chunks[1]);
     render_sidebar(frame, app, mid[0], theme);
     render_main(frame, app, mid[1], theme);
