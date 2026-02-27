@@ -13,8 +13,11 @@ pub fn detect_repair_suggestions(
     agg_stats: &[AggregatedColumnStats],
     encodings: &[EncodingAnalysis],
 ) -> Vec<RepairSuggestion> {
-    let mut suggestions = Vec::new();
     let rg_count = row_groups.len();
+    if rg_count == 0 {
+        return Vec::new(); // guard: no row groups, avoid integer division
+    }
+    let mut suggestions = Vec::new();
     if rg_count > 100 {
         let avg_bytes = row_groups
             .iter()
