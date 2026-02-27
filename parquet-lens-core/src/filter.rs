@@ -828,6 +828,54 @@ pub fn filter_count(path: &Path, predicate: &Predicate) -> Result<FilterResult, 
 }
 
 #[cfg(test)]
+mod tests_can_skip_rg {
+    use super::*;
+    use parquet::file::metadata::{ColumnChunkMetaData, RowGroupMetaData};
+    use parquet::file::statistics::Statistics;
+    use parquet::schema::types::{SchemaDescriptor, Type as SchemaType};
+    use std::sync::Arc;
+
+    fn make_rg(min: i32, max: i32) -> RowGroupMetaData {
+        let field = Arc::new(SchemaType::primitive_type_builder("age", parquet::basic::Type::INT32).build().unwrap());
+        let schema = Arc::new(SchemaType::group_type_builder("schema").with_fields(vec![field]).build().unwrap());
+        let descr = Arc::new(SchemaDescriptor::new(schema));
+        let col = ColumnChunkMetaData::builder(descr.column(0).clone())
+            .set_statistics(Statistics::new::<i32>(Some(min), Some(max), None, Some(0), false))
+            .build().unwrap();
+        RowGroupMetaData::builder(descr).set_num_rows(100).set_column_metadata(vec![col]).build().unwrap()
+    }
+
+    fn cmp(col: &str, op: CmpOp, val: i64) -> Predicate {
+        Predicate::Comparison { col: col.into(), op, val: Value::Int(val) }
+    }
+
+    #[test] fn not_never_skips() {
+        let rg = make_rg(10, 20);
+        assert!(!can_skip_row_group(&Predicate::Not(Box::new(cmp("age", CmpOp::Eq, 15))), &rg));
+    }
+    #[test] fn and_either_false_skips() {
+        // age = 99 (out of range) AND always-false In => skip (left is provably false)
+        let rg = make_rg(10, 20);
+        let and = Predicate::And(Box::new(cmp("age", CmpOp::Eq, 99)), Box::new(Predicate::In { col: "age".into(), vals: vec![] }));
+        assert!(can_skip_row_group(&and, &rg));
+    }
+    #[test] fn or_both_false_required() {
+        // Or(In, In) — both always return false → skip
+        let rg = make_rg(10, 20);
+        let or = Predicate::Or(Box::new(Predicate::In { col: "x".into(), vals: vec![] }), Box::new(Predicate::In { col: "y".into(), vals: vec![] }));
+        assert!(!can_skip_row_group(&or, &rg)); // neither can be skipped alone
+    }
+    #[test] fn comparison_out_of_range_skips() {
+        let rg = make_rg(10, 20);
+        assert!(can_skip_row_group(&cmp("age", CmpOp::Eq, 99), &rg)); // 99 > max → skip
+    }
+    #[test] fn comparison_in_range_no_skip() {
+        let rg = make_rg(10, 20);
+        assert!(!can_skip_row_group(&cmp("age", CmpOp::Eq, 15), &rg));
+    }
+}
+
+#[cfg(test)]
 mod tests_like_match_at {
     use super::*;
 
