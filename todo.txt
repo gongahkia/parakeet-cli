@@ -2,7 +2,6 @@
 
 
 
-(B) Add colorblind-safe theme: add colorblind variant to Theme::from_name that replaces red danger color with orange (#FF8C00) and green success with blue (#0080FF) +feature +tui
 (B) Add --no-color flag to Summary subcommand: skip ANSI escape codes in pretty-format output when set; also honor NO_COLOR env var automatically via std::env::var("NO_COLOR").is_ok() at top of run_summary +feature +cli
 (B) Add View::WatchLog to TUI: when --watch is active add W keybind rendering a scrollable list of last 20 reload events with timestamps and one-line diff summary (rows changed, schema changed flag) +feature +tui
 (B) Add parquet-lens completions subcommand: Commands::Completions { shell: clap_complete::Shell } calling clap_complete::generate to stdout; add clap_complete to parquet-lens-tui Cargo.toml +feature +cli

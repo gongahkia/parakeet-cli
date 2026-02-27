@@ -70,11 +70,26 @@ impl Theme {
             success: Color::Rgb(166, 227, 161),
         }
     }
+    pub fn colorblind() -> Self {
+        Self {
+            bg: Color::Black,
+            fg: Color::White,
+            highlight: Color::Yellow,
+            numeric: Color::Cyan,
+            string: Color::Rgb(0x00, 0x80, 0xFF), // blue instead of green
+            temporal: Color::Yellow,
+            boolean: Color::Magenta,
+            error: Color::Rgb(0xFF, 0x8C, 0x00),  // orange instead of red
+            warning: Color::LightYellow,
+            success: Color::Rgb(0x00, 0x80, 0xFF), // blue instead of green
+        }
+    }
     pub fn from_name(name: &str) -> Self {
         match name {
             "light" => Self::light(),
             "nord" => Self::nord(),
             "catppuccin" => Self::catppuccin(),
+            "colorblind" => Self::colorblind(),
             _ => Self::dark(),
         }
     }
