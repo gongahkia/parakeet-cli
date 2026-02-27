@@ -1,4 +1,4 @@
-use crate::tui::app::{App, Focus, ProfilingMode, SidebarSort, View};
+use crate::tui::app::{App, Focus, ProfilingMode, ProgressState, SidebarSort, View};
 use crossterm::event::{KeyCode, KeyEvent};
 use parquet_lens_core::{
     analyze_null_patterns, export_json, filter_count, load_baseline_regressions,
@@ -41,6 +41,13 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
         }
         KeyCode::Char('`') => {
             app.sidebar_visible = !app.sidebar_visible;
+            return;
+        }
+        KeyCode::Esc if matches!(app.progress, ProgressState::Running { .. }) => {
+            app.progress = ProgressState::Cancelled;
+            app.progress_rx = None;
+            app.pending_full_scan = false;
+            app.status_msg = "Scan cancelled".into();
             return;
         }
         _ => {}

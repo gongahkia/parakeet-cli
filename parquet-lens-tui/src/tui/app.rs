@@ -62,7 +62,6 @@ pub enum ProgressState {
         total_rows: u64,
     },
     Done,
-    #[allow(dead_code)]
     Cancelled,
 }
 
