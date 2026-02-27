@@ -39,6 +39,7 @@ pub enum View {
     Baseline,
     Duplicates,
     Partitions,
+    WatchLog,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -118,6 +119,7 @@ pub struct App {
     pub theme: Theme,
     pub help_scroll: usize, // scroll offset for help keybind table
     pub watch_rx: Option<std::sync::mpsc::Receiver<()>>, // reload events from filesystem watcher
+    pub watch_log: Vec<String>, // last 20 reload event summaries for WatchLog view
     pub sidebar_width: u16, // runtime-adjustable sidebar width, clamped 15..=60
     pub sidebar_visible: bool, // backtick toggle; also auto-hidden when terminal < 80 cols
     pub pending_duplicate_scan: bool,
@@ -180,6 +182,7 @@ impl App {
             partition_infos: Vec::new(),
             help_scroll: 0,
             watch_rx: None,
+            watch_log: Vec::new(),
             sidebar_width,
             sidebar_visible: true,
             pending_duplicate_scan: false,

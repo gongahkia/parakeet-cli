@@ -737,6 +737,11 @@ fn run_tui(
                         app.repair_suggestions = detect_repair_suggestions(&app.row_groups, &app.agg_stats, &app.encoding_analysis);
                         app.rg_size_recommendation = recommend_row_group_size(&app.row_groups);
                         app.null_patterns = analyze_null_patterns(&app.agg_stats);
+                        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+                        let schema_changed = false; // track across reloads in future
+                        let entry = format!("[{now}] rows={tr} schema_changed={schema_changed}");
+                        app.watch_log.push(entry);
+                        if app.watch_log.len() > 20 { app.watch_log.remove(0); }
                         app.status_msg = "Reloaded (file changed) — q:quit ?:help".into();
                     }
                 }

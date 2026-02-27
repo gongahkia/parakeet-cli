@@ -116,7 +116,13 @@ fn handle_sidebar(app: &mut App, key: KeyEvent) {
         KeyCode::Char('F') => app.view = View::FileList,
         KeyCode::Char('T') => app.view = View::TimeSeries, // time-series profile
         KeyCode::Char('X') => app.view = View::Nested,     // nested type profile
-        KeyCode::Char('W') => app.view = View::Repair,     // repair suggestions
+        KeyCode::Char('W') => {
+            if app.watch_rx.is_some() {
+                app.view = View::WatchLog; // watch log (only in --watch mode)
+            } else {
+                app.view = View::Repair; // repair suggestions
+            }
+        }
         KeyCode::Char('Q') => app.view = View::Partitions, // partition info
         KeyCode::Char('/') => {
             app.sidebar_searching = true;

@@ -168,6 +168,7 @@ fn render_main(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
         View::Baseline => render_baseline(frame, app, area, theme),
         View::Duplicates => render_duplicates(frame, app, area, theme),
         View::Partitions => render_partitions(frame, app, area, theme),
+        View::WatchLog => render_watch_log(frame, app, area),
     }
 }
 
@@ -220,6 +221,19 @@ fn render_duplicates(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
                     .title("Duplicate Detection (V)"),
             )
             .wrap(Wrap { trim: false }),
+        area,
+    );
+}
+
+fn render_watch_log(frame: &mut Frame, app: &App, area: Rect) {
+    let items: Vec<ListItem> = if app.watch_log.is_empty() {
+        vec![ListItem::new("No reload events yet. Watching for file changes...")]
+    } else {
+        app.watch_log.iter().rev().map(|entry| ListItem::new(entry.as_str())).collect()
+    };
+    frame.render_widget(
+        List::new(items)
+            .block(Block::default().borders(Borders::ALL).title("Watch Log (W) — last 20 reloads")),
         area,
     );
 }
