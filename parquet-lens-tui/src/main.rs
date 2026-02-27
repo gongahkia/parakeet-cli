@@ -159,6 +159,9 @@ enum Commands {
     },
     Duplicates {
         path: String,
+        /// Force HashSet-based exact dedup regardless of row count
+        #[arg(long)]
+        exact: bool,
     },
     Check {
         path: String,
@@ -215,13 +218,13 @@ async fn main() -> anyhow::Result<()> {
             columns,
             output,
         } => run_export(path, format, columns, output, config)?,
-        Commands::Duplicates { path } => run_duplicates(path)?,
+        Commands::Duplicates { path, exact } => run_duplicates(path, exact)?,
         Commands::Check { path, format, fail_on_regression } => run_check(path, &format, fail_on_regression)?,
     }
     Ok(())
 }
 
-fn run_duplicates(input_path: String) -> anyhow::Result<()> {
+fn run_duplicates(input_path: String, exact: bool) -> anyhow::Result<()> {
     let dup_path = if is_s3_uri(&input_path) || is_gcs_uri(&input_path) {
         // download to tempfile for cloud paths
         let bytes = if is_s3_uri(&input_path) {
@@ -246,7 +249,7 @@ fn run_duplicates(input_path: String) -> anyhow::Result<()> {
         std::path::PathBuf::from(&input_path)
     };
     let report =
-        detect_duplicates(&dup_path, false).map_err(|e| anyhow::anyhow!("{e}"))?;
+        detect_duplicates(&dup_path, exact).map_err(|e| anyhow::anyhow!("{e}"))?;
     println!("{:<24} {}", "total_rows:", report.total_rows);
     println!(
         "{:<24} {}",
