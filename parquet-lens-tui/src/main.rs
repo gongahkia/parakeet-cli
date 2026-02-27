@@ -93,6 +93,8 @@ fn compute_quality_scores(
         .collect()
 }
 
+// note: returned ParquetFileInfo and ParquetMetaData are from paths[0] only.
+// callers needing aggregate stats across all files must use read_metadata_parallel separately.
 fn load_file_stats(
     paths: &[ParquetFilePath],
 ) -> anyhow::Result<(DatasetProfile, ParquetFileInfo, ParquetMetaData)> {
