@@ -110,7 +110,11 @@ impl Config {
     }
 
     pub fn load() -> crate::Result<Self> {
-        let path = Self::config_path();
+        let path = if let Ok(env_path) = std::env::var("PARQUET_LENS_CONFIG") {
+            PathBuf::from(env_path) // $PARQUET_LENS_CONFIG overrides default config path
+        } else {
+            Self::config_path()
+        };
         if !path.exists() {
             return Ok(Self::default());
         }
