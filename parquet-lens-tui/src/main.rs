@@ -815,7 +815,7 @@ fn run_summary(
     let quality_scores = compute_quality_scores(&agg_stats, &encodings, total_rows);
     let total_cells = total_rows * dataset.combined_schema.len() as i64;
     let total_nulls: u64 = agg_stats.iter().map(|s| s.total_null_count).sum();
-    let quality = summarize_quality(quality_scores, total_cells, total_nulls, true);
+    let quality = summarize_quality(quality_scores, total_cells, total_nulls, dataset.schema_inconsistencies.is_empty());
     if json_out {
         println!("{}", serde_json::to_string(&quality)?);
         return Ok(());
