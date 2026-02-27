@@ -36,6 +36,10 @@ pub struct ProfilingConfig {
     pub sample_size: usize,
     #[serde(default = "default_bins")]
     pub histogram_bins: usize,
+    #[serde(default = "default_large_file_threshold")]
+    pub large_file_threshold_bytes: u64,
+    #[serde(default)]
+    pub full_scan_timeout_secs: Option<u64>,
 }
 
 fn default_mode() -> String {
@@ -47,6 +51,9 @@ fn default_sample() -> usize {
 fn default_bins() -> usize {
     30
 }
+fn default_large_file_threshold() -> u64 {
+    1073741824 // 1GiB
+}
 
 impl Default for ProfilingConfig {
     fn default() -> Self {
@@ -54,6 +61,8 @@ impl Default for ProfilingConfig {
             default_mode: default_mode(),
             sample_size: default_sample(),
             histogram_bins: default_bins(),
+            large_file_threshold_bytes: default_large_file_threshold(),
+            full_scan_timeout_secs: None,
         }
     }
 }

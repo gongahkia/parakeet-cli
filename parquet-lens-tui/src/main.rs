@@ -756,10 +756,12 @@ fn run_tui(
             };
             let path = std::path::PathBuf::from(&app.input_path);
             let bins = app.config.profiling.histogram_bins;
+            let timeout_secs = app.config.profiling.full_scan_timeout_secs;
             let (tx, rx) = std::sync::mpsc::channel::<(u64, Vec<parquet_lens_core::ColumnProfileResult>)>();
             app.progress_rx = Some(rx);
             tokio::task::spawn_blocking(move || {
-                match profile_columns(&path, None, 65536, bins) {
+                let result = parquet_lens_core::profile_columns_with_timeout(&path, None, 65536, bins, timeout_secs);
+                match result {
                     Ok(results) => { let _ = tx.send((total_rows, results)); }
                     Err(_) => { let _ = tx.send((total_rows, Vec::new())); }
                 }

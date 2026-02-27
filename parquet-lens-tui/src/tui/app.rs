@@ -408,10 +408,11 @@ impl App {
     pub fn cycle_profiling_mode(&mut self) {
         match self.profiling_mode {
             ProfilingMode::Metadata => {
+                let threshold = self.config.profiling.large_file_threshold_bytes;
                 let large = self
                     .file_info
                     .as_ref()
-                    .map(|f| f.file_size > 1024 * 1024 * 1024)
+                    .map(|f| f.file_size > threshold)
                     .unwrap_or(false);
                 if large {
                     self.view = View::ConfirmFullScan;
