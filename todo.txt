@@ -2,8 +2,6 @@
 
 
 
-(B) Add parquet-lens filter subcommand: Commands::Filter { path: String, expr: String, output: Option<String>, limit: Option<usize> } that calls parse_predicate then filter_count and optionally exports matching rows to CSV +feature +cli
-(B) Implement filter_rows fn in filter.rs: like filter_count but yields matching RecordBatches up to limit rows for use in filter subcommand CSV export path +feature +core
 (B) Add parquet-lens schema subcommand: Commands::Schema { path: String, json: bool } that prints combined_schema as a plain table or JSON without full profiling for fast schema inspection in CI +feature +cli
 (B) Fix full_scan_results not rendered in TUI: in render_column_detail when app.profiling_mode == FullScan and app.full_scan_results is non-empty display histogram bins and numeric profile data from the matching ColumnProfileResult for the selected column +bug +tui
 (B) Add baseline_captured_at human-readable display: in render_baseline TUI view format app.baseline_captured_at unix timestamp using chrono::DateTime::from_timestamp as YYYY-MM-DD HH:MM:SS UTC string instead of raw seconds +feature +tui

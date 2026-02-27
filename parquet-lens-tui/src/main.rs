@@ -178,6 +178,14 @@ enum Commands {
         #[arg(long)]
         fail_on_regression: bool,
     },
+    Filter {
+        path: String,
+        expr: String,
+        #[arg(long)]
+        output: Option<String>,
+        #[arg(long)]
+        limit: Option<usize>,
+    },
 }
 
 #[tokio::main]
@@ -232,6 +240,7 @@ async fn main() -> anyhow::Result<()> {
         } => run_export(path, format, columns, output, sample, sample_seed, config)?,
         Commands::Duplicates { path, exact } => run_duplicates(path, exact)?,
         Commands::Check { path, format, fail_on_regression } => run_check(path, &format, fail_on_regression)?,
+        Commands::Filter { path, expr, output, limit } => run_filter(path, expr, output, limit)?,
     }
     Ok(())
 }
@@ -271,6 +280,32 @@ fn run_duplicates(input_path: String, exact: bool) -> anyhow::Result<()> {
         "{:<24} {:.2}%",
         "estimated_duplicate_pct:", report.estimated_duplicate_pct
     );
+    Ok(())
+}
+
+fn run_filter(input_path: String, expr: String, output: Option<String>, limit: Option<usize>) -> anyhow::Result<()> {
+    let predicate = parquet_lens_core::parse_predicate(&expr).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let path = std::path::Path::new(&input_path);
+    let result = parquet_lens_core::filter_count(path, &predicate).map_err(|e| anyhow::anyhow!("{e}"))?;
+    println!("matched_rows:  {}", result.matched_rows);
+    println!("scanned_rows:  {}", result.scanned_rows);
+    println!("skipped_rgs:   {}/{}", result.skipped_rgs, result.total_rgs);
+    if let Some(out_path) = output {
+        let batches = parquet_lens_core::filter_rows(path, &predicate, limit).map_err(|e| anyhow::anyhow!("{e}"))?;
+        if batches.is_empty() {
+            println!("no matching rows — CSV not written");
+            return Ok(());
+        }
+        let mut file = std::fs::File::create(&out_path)?;
+        let schema = batches[0].schema();
+        let mut writer = arrow::csv::WriterBuilder::new().with_header(true).build(&mut file);
+        for batch in &batches {
+            writer.write(batch).map_err(|e| anyhow::anyhow!("{e}"))?;
+        }
+        drop(writer);
+        println!("exported to {out_path}");
+        let _ = schema; // suppress unused warning
+    }
     Ok(())
 }
 

@@ -53,7 +53,7 @@ pub use stats_ext::{
     PartitionInfo, SortedOrderInfo, StringLengthHist,
 };
 pub mod filter;
-pub use filter::{filter_count, parse_predicate, FilterResult, Predicate};
+pub use filter::{filter_count, filter_rows, parse_predicate, FilterResult, Predicate};
 pub mod sample;
 pub use sample::{sample_row_groups, SampleConfig, SampledProfile};
 pub mod baseline;

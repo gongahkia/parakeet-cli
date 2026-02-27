@@ -827,6 +827,53 @@ pub fn filter_count(path: &Path, predicate: &Predicate) -> Result<FilterResult, 
     })
 }
 
+/// Like filter_count but returns matching rows as RecordBatches, up to `limit` total rows.
+/// Used by the filter subcommand for CSV export.
+pub fn filter_rows(path: &Path, predicate: &Predicate, limit: Option<usize>) -> Result<Vec<RecordBatch>, String> {
+    let file = File::open(path).map_err(|e| e.to_string())?;
+    let builder = ParquetRecordBatchReaderBuilder::try_new(file).map_err(|e| e.to_string())?;
+    let meta = builder.metadata().clone();
+    let total_rgs = meta.num_row_groups();
+    let mut rgs_to_scan: Vec<usize> = Vec::new();
+    for rg_idx in 0..total_rgs {
+        if !can_skip_row_group(predicate, meta.row_group(rg_idx)) {
+            rgs_to_scan.push(rg_idx);
+        }
+    }
+    let mut out: Vec<RecordBatch> = Vec::new();
+    let mut total_collected: usize = 0;
+    if rgs_to_scan.is_empty() {
+        return Ok(out);
+    }
+    let selection = parquet::arrow::arrow_reader::RowSelection::from(
+        (0..total_rgs).map(|i| {
+            let count = meta.row_group(i).num_rows() as usize;
+            if rgs_to_scan.contains(&i) { parquet::arrow::arrow_reader::RowSelector::select(count) }
+            else { parquet::arrow::arrow_reader::RowSelector::skip(count) }
+        }).collect::<Vec<_>>(),
+    );
+    let reader = builder.with_row_selection(selection).build().map_err(|e| e.to_string())?;
+    for batch_result in reader {
+        let batch = batch_result.map_err(|e| e.to_string())?;
+        let mask = eval_predicate_batch(predicate, &batch);
+        if mask.true_count() == 0 { continue; }
+        let indices: Vec<u64> = (0..batch.num_rows()).filter(|&r| mask.value(r)).map(|r| r as u64).collect();
+        let idx_arr = arrow::array::UInt64Array::from(indices);
+        let filtered = arrow::compute::take_record_batch(&batch, &idx_arr).map_err(|e| e.to_string())?;
+        let remaining = limit.map(|lim| lim.saturating_sub(total_collected)).unwrap_or(usize::MAX);
+        if filtered.num_rows() <= remaining {
+            total_collected += filtered.num_rows();
+            out.push(filtered);
+        } else {
+            let sliced = filtered.slice(0, remaining);
+            total_collected += sliced.num_rows();
+            out.push(sliced);
+        }
+        if limit.is_some_and(|lim| total_collected >= lim) { break; }
+    }
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests_can_skip_rg {
     use super::*;
