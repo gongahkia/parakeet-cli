@@ -828,6 +828,22 @@ pub fn filter_count(path: &Path, predicate: &Predicate) -> Result<FilterResult, 
 }
 
 #[cfg(test)]
+mod tests_like_match_at {
+    use super::*;
+
+    fn lm(s: &str, pat: &str) -> bool { like_match(s, &like_to_regex(pat)) }
+
+    #[test] fn wildcard_start() { assert!(lm("hello", "%llo")); }
+    #[test] fn wildcard_end() { assert!(lm("hello", "hel%")); }
+    #[test] fn wildcard_middle() { assert!(lm("hello world", "hello%world")); }
+    #[test] fn single_char() { assert!(lm("abc", "a_c")); assert!(!lm("ac", "a_c")); }
+    #[test] fn combined_pct_underscore() { assert!(lm("abXcd", "%_cd")); }
+    #[test] fn empty_string_empty_pattern() { assert!(lm("", "")); }
+    #[test] fn empty_string_wildcard() { assert!(lm("", "%")); }
+    #[test] fn no_wildcard_exact() { assert!(lm("hello", "hello")); assert!(!lm("hello", "hell")); }
+}
+
+#[cfg(test)]
 mod tests_parse_predicate {
     use super::*;
 
