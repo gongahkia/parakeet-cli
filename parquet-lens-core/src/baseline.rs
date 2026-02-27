@@ -30,6 +30,15 @@ impl BaselineProfile {
     }
 
     pub fn save(&self) -> anyhow::Result<()> {
+        // warn: s3:// and gs:// paths key on the URI string; in-place file updates
+        // (e.g. overwriting same S3 key) silently reuse the old baseline key.
+        // TODO: future improvement — key on content-hash (e.g. ETag/MD5) instead of URI.
+        if self.file_path.starts_with("s3://") || self.file_path.starts_with("gs://") {
+            eprintln!(
+                "warning: baseline key is path '{}'; in-place S3/GCS overwrites will silently collide with this key",
+                self.file_path
+            );
+        }
         let path = Self::cache_path(&self.file_path);
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
