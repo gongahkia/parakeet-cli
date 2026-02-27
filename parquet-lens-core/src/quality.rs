@@ -116,6 +116,7 @@ pub fn summarize_quality(
     sorted.sort_by(|a, b| a.score.cmp(&b.score));
     let worst_columns = sorted
         .iter()
+        .filter(|s| s.score < 80) // only genuinely poor columns
         .take(5)
         .map(|s| s.column_name.clone())
         .collect();
