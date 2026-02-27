@@ -754,16 +754,17 @@ pub fn filter_count(path: &Path, predicate: &Predicate) -> Result<FilterResult, 
     let builder = ParquetRecordBatchReaderBuilder::try_new(file).map_err(|e| e.to_string())?;
     let meta: std::sync::Arc<ParquetMetaData> = builder.metadata().clone(); // single open
     // bounds check: verify all referenced columns exist in schema
+    // use path_in_schema for nested dot-notation path matching
     let schema = meta.file_metadata().schema_descr();
-    let schema_names: Vec<String> = (0..schema.num_columns())
-        .map(|i| schema.column(i).name().to_owned())
+    let schema_paths: Vec<String> = (0..schema.num_columns())
+        .map(|i| schema.column(i).path().string())
         .collect();
     for col in predicate_columns(predicate) {
-        if !schema_names.iter().any(|n| n == col) {
+        if !schema_paths.iter().any(|n| n == col) {
             return Err(format!(
                 "column '{}' not found in schema (available: {})",
                 col,
-                schema_names.join(", ")
+                schema_paths.join(", ")
             ));
         }
     }

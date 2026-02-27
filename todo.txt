@@ -2,7 +2,6 @@
 
 
 
-(B) Fix filter_count column path comparison: replace schema_names string equality check with cm.column_descr().path_in_schema().string() comparison so nested column dot-notation paths are matched correctly +bug +core
 (B) Add Decimal128 type support to build_mask in filter.rs: add downcast_ref::<Decimal128Array> branch with scale-aware f64 conversion for Eq/Ne/Lt/Le/Gt/Ge comparison ops +feature +core
 (B) Add Date32/Date64 type support to build_mask in filter.rs: add downcast_ref::<Date32Array> and Date64Array branches comparing days-since-epoch as i64 values +feature +core
 (B) Add BETWEEN predicate to parser: parse col BETWEEN a AND b emitting Predicate::And(Comparison(>=a), Comparison(<=b)) with full row-group pushdown via the two existing Comparison branches +feature +core
