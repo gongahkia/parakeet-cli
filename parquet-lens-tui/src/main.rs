@@ -444,6 +444,7 @@ fn run_tui(
                 app.timeseries_profiles = ts;
             }
             Err(e) => {
+                eprintln!("timeseries warning: {e}");
                 app.status_msg = format!("timeseries error: {e}");
             }
         }
