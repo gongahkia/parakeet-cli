@@ -2,7 +2,6 @@
 
 
 
-(B) Add parquet-lens schema subcommand: Commands::Schema { path: String, json: bool } that prints combined_schema as a plain table or JSON without full profiling for fast schema inspection in CI +feature +cli
 (B) Fix full_scan_results not rendered in TUI: in render_column_detail when app.profiling_mode == FullScan and app.full_scan_results is non-empty display histogram bins and numeric profile data from the matching ColumnProfileResult for the selected column +bug +tui
 (B) Add baseline_captured_at human-readable display: in render_baseline TUI view format app.baseline_captured_at unix timestamp using chrono::DateTime::from_timestamp as YYYY-MM-DD HH:MM:SS UTC string instead of raw seconds +feature +tui
 (B) Add --json flag to Duplicates subcommand: emit DuplicateReport as serde_json to stdout when --json is passed +feature +cli

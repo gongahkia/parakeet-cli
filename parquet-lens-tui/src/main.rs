@@ -186,6 +186,11 @@ enum Commands {
         #[arg(long)]
         limit: Option<usize>,
     },
+    Schema {
+        path: String,
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[tokio::main]
@@ -241,6 +246,7 @@ async fn main() -> anyhow::Result<()> {
         Commands::Duplicates { path, exact } => run_duplicates(path, exact)?,
         Commands::Check { path, format, fail_on_regression } => run_check(path, &format, fail_on_regression)?,
         Commands::Filter { path, expr, output, limit } => run_filter(path, expr, output, limit)?,
+        Commands::Schema { path, json } => run_schema(path, json)?,
     }
     Ok(())
 }
@@ -305,6 +311,21 @@ fn run_filter(input_path: String, expr: String, output: Option<String>, limit: O
         drop(writer);
         println!("exported to {out_path}");
         let _ = schema; // suppress unused warning
+    }
+    Ok(())
+}
+
+fn run_schema(input_path: String, json: bool) -> anyhow::Result<()> {
+    let path = std::path::Path::new(&input_path);
+    let schema = parquet_lens_core::extract_schema(path).map_err(|e| anyhow::anyhow!("{e}"))?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&schema)?);
+    } else {
+        println!("{:<40} {:<12} {:<20} {}", "name", "type", "logical_type", "repetition");
+        println!("{}", "-".repeat(80));
+        for col in &schema {
+            println!("{:<40} {:<12} {:<20} {}", col.name, col.physical_type, col.logical_type.as_deref().unwrap_or("-"), col.repetition);
+        }
     }
     Ok(())
 }
