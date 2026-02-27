@@ -201,6 +201,9 @@ enum Commands {
         #[arg(long)]
         json: bool,
     },
+    Completions {
+        shell: clap_complete::Shell,
+    },
 }
 
 #[tokio::main]
@@ -264,6 +267,10 @@ async fn main() -> anyhow::Result<()> {
         Commands::Check { path, format, fail_on_regression } => run_check(path, &format, fail_on_regression)?,
         Commands::Filter { path, expr, output, limit } => run_filter(path, expr, output, limit)?,
         Commands::Schema { path, json } => run_schema(path, json)?,
+        Commands::Completions { shell } => {
+            use clap::CommandFactory;
+            clap_complete::generate(shell, &mut Cli::command(), "parquet-lens", &mut std::io::stdout());
+        }
     }
     Ok(())
 }

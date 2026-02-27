@@ -3,7 +3,6 @@
 
 
 (B) Add --no-color flag to Summary subcommand: skip ANSI escape codes in pretty-format output when set; also honor NO_COLOR env var automatically via std::env::var("NO_COLOR").is_ok() at top of run_summary +feature +cli
-(B) Add parquet-lens completions subcommand: Commands::Completions { shell: clap_complete::Shell } calling clap_complete::generate to stdout; add clap_complete to parquet-lens-tui Cargo.toml +feature +cli
 (B) Fix session restore for FilterInput: verify App::to_session maps View::FilterInput to a serializable string and App::restore_from_session restores it; current code maps it to "overview" silently +bug +tui
 (B) Add Makefile with standard targets: build (cargo build --release), test (cargo test --workspace), lint (cargo fmt --check && cargo clippy -- -D warnings), release (cargo build --release), install (cp target/release/parquet-lens /usr/local/bin/) +infra
 (B) Add exit code documentation to check subcommand: add .long_about() on Commands::Check describing exit codes 0=clean 1=regressions-found 2=file-not-found for CI integration scripts +feature +cli

@@ -31,3 +31,4 @@ futures = "0.3"
 notify = "6"
 tempfile = "3"
 ctrlc = { version = "3", features = ["termination"] }
+clap_complete = "4"
