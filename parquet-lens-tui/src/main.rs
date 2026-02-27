@@ -147,6 +147,10 @@ enum Commands {
         sample: Option<f64>,
         #[arg(long)]
         sample_seed: Option<u64>,
+        #[arg(long, value_delimiter = ',')]
+        columns: Option<Vec<String>>,
+        #[arg(long)]
+        no_color: bool,
     },
     Compare {
         path1: String,
@@ -237,7 +241,9 @@ async fn main() -> anyhow::Result<()> {
             json,
             sample,
             sample_seed,
-        } => run_summary(path, save, &format, json, sample, sample_seed, &config)?,
+            columns,
+            no_color,
+        } => run_summary(path, save, &format, json, sample, sample_seed, columns, no_color, &config)?,
         Commands::Compare { path1, path2 } => run_compare(path1, path2, config)?,
         Commands::Export {
             path,
@@ -897,8 +903,11 @@ fn run_summary(
     json_out: bool,
     sample_pct: Option<f64>,
     sample_seed: Option<u64>,
+    columns: Option<Vec<String>>,
+    no_color: bool,
     config: &Config,
 ) -> anyhow::Result<()> {
+    let no_color = no_color || std::env::var("NO_COLOR").is_ok();
     let paths = rp(&input_path)?;
     if paths.is_empty() {
         anyhow::bail!("No Parquet files found: {input_path}");
@@ -924,17 +933,27 @@ fn run_summary(
     let quality_scores = compute_quality_scores(&agg_stats, &encodings, total_rows);
     let total_cells = total_rows * dataset.combined_schema.len() as i64;
     let total_nulls: u64 = agg_stats.iter().map(|s| s.total_null_count).sum();
+    let quality_scores = if let Some(ref cols) = columns {
+        quality_scores.into_iter().filter(|s| cols.iter().any(|c| c == &s.column_name)).collect()
+    } else { quality_scores };
     let quality = summarize_quality(quality_scores, total_cells, total_nulls, dataset.schema_inconsistencies.is_empty(), &agg_stats);
     if json_out {
         println!("{}", serde_json::to_string(&quality)?);
         return Ok(());
     }
     if format == "pretty" {
-        const BOLD: &str = "\x1b[1m";
-        const RESET: &str = "\x1b[0m";
-        const GREEN: &str = "\x1b[32m";
-        const YELLOW: &str = "\x1b[33m";
-        const RED: &str = "\x1b[31m";
+        let (bold, reset, green, yellow, red) = if no_color {
+            ("", "", "", "", "")
+        } else {
+            ("\x1b[1m", "\x1b[0m", "\x1b[32m", "\x1b[33m", "\x1b[31m")
+        };
+        macro_rules! BOLD { () => { bold } }
+        macro_rules! RESET { () => { reset } }
+        macro_rules! GREEN { () => { green } }
+        macro_rules! YELLOW { () => { yellow } }
+        macro_rules! RED { () => { red } }
+        let _ = (BOLD!(), RESET!(), GREEN!(), YELLOW!(), RED!()); // suppress unused
+        let (BOLD, RESET, GREEN, YELLOW, RED) = (bold, reset, green, yellow, red);
         println!("{}Files:{}           {}", BOLD, RESET, dataset.file_count);
         println!("{}Rows:{}            {}", BOLD, RESET, dataset.total_rows);
         println!(
