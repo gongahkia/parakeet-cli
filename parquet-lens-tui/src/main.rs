@@ -170,6 +170,8 @@ enum Commands {
         sample: Option<f64>,
         #[arg(long)]
         sample_seed: Option<u64>,
+        #[arg(long)]
+        limit: Option<usize>,
     },
     Duplicates {
         path: String,
@@ -269,7 +271,8 @@ async fn main() -> anyhow::Result<()> {
             output,
             sample,
             sample_seed,
-        } => run_export(path, format, columns, output, sample, sample_seed, config)?,
+            limit,
+        } => run_export(path, format, columns, output, sample, sample_seed, limit, config)?,
         Commands::Duplicates { path, exact, json, threshold } => run_duplicates(path, exact, json, threshold)?,
         Commands::Check { path, format, fail_on_regression } => run_check(path, &format, fail_on_regression)?,
         Commands::Filter { path, expr, output, limit } => run_filter(path, expr, output, limit)?,
@@ -1082,6 +1085,7 @@ fn run_export(
     output: Option<String>,
     sample_pct: Option<f64>,
     sample_seed: Option<u64>,
+    limit: Option<usize>,
     config: Config,
 ) -> anyhow::Result<()> {
     let paths = rp(&input_path)?;
@@ -1141,6 +1145,11 @@ fn run_export(
             max_rep_level: c.max_rep_level,
         })
         .collect::<Vec<_>>();
+    // apply row limit to column stats
+    if let Some(lim) = limit {
+        agg_stats.truncate(lim);
+        quality_scores.truncate(lim);
+    }
     let (_, baseline_regressions) =
         load_baseline_regressions(&paths[0].path, &agg_stats, &quality_scores, &schema);
     let timeseries_profiles = parquet_lens_core::profile_timeseries(&paths[0].path, &[]).unwrap_or_default();
@@ -1169,7 +1178,16 @@ fn run_export(
                 .map_err(|e| anyhow::anyhow!("{e}"))?;
             println!("Exported to {}", out_path.display());
         }
-        _ => anyhow::bail!("Unknown format: {format} (use json or csv)"),
+        "ndjson" => {
+            let mut file = std::fs::File::create(&out_path)?;
+            for stat in &agg_stats {
+                let line = serde_json::to_string(stat)?;
+                std::io::Write::write_all(&mut file, line.as_bytes())?;
+                std::io::Write::write_all(&mut file, b"\n")?;
+            }
+            println!("Exported to {}", out_path.display());
+        }
+        _ => anyhow::bail!("Unknown format: {format} (use json, csv, or ndjson)"),
     }
     Ok(())
 }
