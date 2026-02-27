@@ -50,6 +50,8 @@ pub struct FilterResult {
     pub scanned_rows: u64,
     pub skipped_rgs: usize,
     pub total_rgs: usize,
+    pub sample_headers: Vec<String>,   // schema column names
+    pub sample_rows: Vec<Vec<String>>, // up to 10 matching rows as strings
 }
 
 // --- recursive descent parser ---
@@ -768,6 +770,8 @@ pub fn filter_count(path: &Path, predicate: &Predicate) -> Result<FilterResult, 
     }
     let mut matched_rows = 0u64;
     let mut scanned_rows = 0u64;
+    let mut sample_headers: Vec<String> = Vec::new();
+    let mut sample_rows: Vec<Vec<String>> = Vec::new();
     if !rgs_to_scan.is_empty() {
         let selection = parquet::arrow::arrow_reader::RowSelection::from(
             (0..total_rgs)
@@ -790,6 +794,17 @@ pub fn filter_count(path: &Path, predicate: &Predicate) -> Result<FilterResult, 
             scanned_rows += batch.num_rows() as u64;
             let mask = eval_predicate_batch(predicate, &batch);
             matched_rows += mask.true_count() as u64;
+            // collect up to 10 sample rows from first matching batch
+            if sample_headers.is_empty() && mask.true_count() > 0 {
+                sample_headers = batch.schema().fields().iter().map(|f| f.name().clone()).collect();
+                for row in 0..batch.num_rows() {
+                    if mask.value(row) {
+                        let vals: Vec<String> = batch.columns().iter().map(|col| col_val_str(col, row)).collect();
+                        sample_rows.push(vals);
+                        if sample_rows.len() >= 10 { break; }
+                    }
+                }
+            }
         }
     }
     Ok(FilterResult {
@@ -797,5 +812,22 @@ pub fn filter_count(path: &Path, predicate: &Predicate) -> Result<FilterResult, 
         scanned_rows,
         skipped_rgs,
         total_rgs,
+        sample_headers,
+        sample_rows,
     })
+}
+
+fn col_val_str(col: &dyn arrow::array::Array, row: usize) -> String {
+    if col.is_null(row) {
+        return "NULL".into();
+    }
+    match col.data_type() {
+        arrow::datatypes::DataType::Int32 => col.as_any().downcast_ref::<Int32Array>().map(|a| a.value(row).to_string()).unwrap_or_default(),
+        arrow::datatypes::DataType::Int64 => col.as_any().downcast_ref::<Int64Array>().map(|a| a.value(row).to_string()).unwrap_or_default(),
+        arrow::datatypes::DataType::Float32 => col.as_any().downcast_ref::<Float32Array>().map(|a| a.value(row).to_string()).unwrap_or_default(),
+        arrow::datatypes::DataType::Float64 => col.as_any().downcast_ref::<Float64Array>().map(|a| a.value(row).to_string()).unwrap_or_default(),
+        arrow::datatypes::DataType::Utf8 => col.as_any().downcast_ref::<StringArray>().map(|a| a.value(row).to_string()).unwrap_or_default(),
+        arrow::datatypes::DataType::Boolean => col.as_any().downcast_ref::<BooleanArray>().map(|a| a.value(row).to_string()).unwrap_or_default(),
+        _ => format!("{:?}", col.data_type()),
+    }
 }
