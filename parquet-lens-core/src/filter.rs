@@ -1,6 +1,6 @@
 use arrow::array::{
-    Array, ArrayRef, BooleanArray, BooleanBuilder, Float32Array, Float64Array, Int32Array,
-    Int64Array, StringArray,
+    Array, ArrayRef, BooleanArray, BooleanBuilder, Date32Array, Date64Array, Decimal128Array,
+    Float32Array, Float64Array, Int32Array, Int64Array, StringArray,
 };
 use arrow::record_batch::RecordBatch;
 use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
@@ -581,6 +581,45 @@ fn build_mask(arr: &ArrayRef, op: &CmpOp, val: &Value, n: usize) -> BooleanArray
                     _ => false,
                 };
                 b.append_value(matched);
+            }
+            return b.finish();
+        }
+        return false_arr;
+    }
+    // Decimal128: convert to f64 using scale for comparison
+    if let Some(a) = arr.as_any().downcast_ref::<Decimal128Array>() {
+        if let Value::Float(fv) = val {
+            let scale = a.scale();
+            let divisor = 10f64.powi(scale as i32);
+            let mut b = BooleanBuilder::with_capacity(n);
+            for i in 0..n {
+                if a.is_null(i) { b.append_value(false); continue; }
+                let v = a.value(i) as f64 / divisor;
+                b.append_value(cmp_f64(v, op, *fv));
+            }
+            return b.finish();
+        }
+        return false_arr;
+    }
+    // Date32: days since epoch as i64 comparison
+    if let Some(a) = arr.as_any().downcast_ref::<Date32Array>() {
+        if let Value::Int(iv) = val {
+            let mut b = BooleanBuilder::with_capacity(n);
+            for i in 0..n {
+                if a.is_null(i) { b.append_value(false); continue; }
+                b.append_value(cmp_i64(a.value(i) as i64, op, *iv));
+            }
+            return b.finish();
+        }
+        return false_arr;
+    }
+    // Date64: milliseconds since epoch as i64 comparison
+    if let Some(a) = arr.as_any().downcast_ref::<Date64Array>() {
+        if let Value::Int(iv) = val {
+            let mut b = BooleanBuilder::with_capacity(n);
+            for i in 0..n {
+                if a.is_null(i) { b.append_value(false); continue; }
+                b.append_value(cmp_i64(a.value(i), op, *iv));
             }
             return b.finish();
         }
