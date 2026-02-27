@@ -2,8 +2,6 @@
 
 
 
-(B) Add BETWEEN predicate to parser: parse col BETWEEN a AND b emitting Predicate::And(Comparison(>=a), Comparison(<=b)) with full row-group pushdown via the two existing Comparison branches +feature +core
-(B) Add NOT IN predicate to parser: parse col NOT IN (...) emitting Predicate::Not(In{...}); update can_skip_row_group to handle Not(In) conservatively returning false +feature +core
 (B) Add SampleConfig seed documentation: add inline comment above SampleConfig struct and sample_row_groups fn stating seed: None produces non-deterministic results and CI pipelines must always pass --sample-seed for reproducibility +stability +core
 (B) Move large-file threshold to config: replace hardcoded 1073741824 byte check in App::cycle_profiling_mode with config.profiling.large_file_threshold_bytes: u64 field (default 1073741824) defined in ProfilingConfig +refactor +common
 (B) Add config.profiling.full_scan_timeout_secs: Option<u64> to ProfilingConfig; in run_tui spawn_blocking block use profile_columns_with_timeout instead of profile_columns when config value is Some +feature +common

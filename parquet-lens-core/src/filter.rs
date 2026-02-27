@@ -144,6 +144,25 @@ impl Parser {
             self.expect("NULL")?;
             return Ok(Predicate::IsNull(col));
         }
+        // NOT IN (...)
+        if self.peek_upper().as_deref() == Some("NOT") {
+            if self.tokens.get(self.pos + 1).map(|s| s.to_uppercase()).as_deref() == Some("IN") {
+                self.consume(); // NOT
+                self.consume(); // IN
+                self.expect("(")?;
+                let mut vals = Vec::new();
+                loop {
+                    vals.push(self.parse_value()?);
+                    match self.peek() {
+                        Some(",") => { self.consume(); }
+                        Some(")") => { self.consume(); break; }
+                        Some(t) => return Err(format!("expected ',' or ')' in NOT IN list, got '{t}'")),
+                        None => return Err("unexpected EOF in NOT IN list".into()),
+                    }
+                }
+                return Ok(Predicate::Not(Box::new(Predicate::In { col, vals })));
+            }
+        }
         // IN (...)
         if self.peek_upper().as_deref() == Some("IN") {
             self.consume();
@@ -164,6 +183,17 @@ impl Parser {
                 }
             }
             return Ok(Predicate::In { col, vals });
+        }
+        // BETWEEN a AND b -> And(>=a, <=b)
+        if self.peek_upper().as_deref() == Some("BETWEEN") {
+            self.consume();
+            let lo = self.parse_value()?;
+            self.expect("AND")?;
+            let hi = self.parse_value()?;
+            return Ok(Predicate::And(
+                Box::new(Predicate::Comparison { col: col.clone(), op: CmpOp::Ge, val: lo }),
+                Box::new(Predicate::Comparison { col, op: CmpOp::Le, val: hi }),
+            ));
         }
         // LIKE
         if self.peek_upper().as_deref() == Some("LIKE") {
