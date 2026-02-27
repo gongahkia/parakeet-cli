@@ -160,6 +160,10 @@ enum Commands {
         columns: Option<Vec<String>>,
         #[arg(long)]
         output: Option<String>,
+        #[arg(long, value_parser = parse_sample_pct)]
+        sample: Option<f64>,
+        #[arg(long)]
+        sample_seed: Option<u64>,
     },
     Duplicates {
         path: String,
@@ -223,7 +227,9 @@ async fn main() -> anyhow::Result<()> {
             format,
             columns,
             output,
-        } => run_export(path, format, columns, output, config)?,
+            sample,
+            sample_seed,
+        } => run_export(path, format, columns, output, sample, sample_seed, config)?,
         Commands::Duplicates { path, exact } => run_duplicates(path, exact)?,
         Commands::Check { path, format, fail_on_regression } => run_check(path, &format, fail_on_regression)?,
     }
@@ -914,6 +920,8 @@ fn run_export(
     format: String,
     columns: Option<Vec<String>>,
     output: Option<String>,
+    sample_pct: Option<f64>,
+    sample_seed: Option<u64>,
     config: Config,
 ) -> anyhow::Result<()> {
     let paths = rp(&input_path)?;
@@ -921,9 +929,21 @@ fn run_export(
         anyhow::bail!("No Parquet files found: {input_path}");
     }
     let (dataset, _, meta) = load_file_stats(&paths)?;
-    let col_stats = read_column_stats(&meta);
     let row_groups = profile_row_groups(&meta);
-    let mut agg_stats = aggregate_column_stats(&col_stats, dataset.total_rows);
+    let mut agg_stats = if let Some(pct) = sample_pct {
+        let cfg = SampleConfig { percentage: pct, no_extrapolation: false, seed: sample_seed };
+        match sample_row_groups(&paths[0].path, &cfg, 20) {
+            Ok(sp) => sp.agg_stats,
+            Err(e) => {
+                eprintln!("sample error: {e}");
+                let cs = read_column_stats(&meta);
+                aggregate_column_stats(&cs, dataset.total_rows)
+            }
+        }
+    } else {
+        let cs = read_column_stats(&meta);
+        aggregate_column_stats(&cs, dataset.total_rows)
+    };
     let encodings = analyze_encodings(&meta);
     let mut quality_scores = compute_quality_scores(&agg_stats, &encodings, dataset.total_rows);
     // column filtering
