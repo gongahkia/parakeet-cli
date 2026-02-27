@@ -1,7 +1,7 @@
 use crate::tui::app::{App, Focus, ProfilingMode, SidebarSort, View};
 use crossterm::event::{KeyCode, KeyEvent};
 use parquet_lens_core::{
-    analyze_null_patterns, detect_duplicates, export_json, filter_count, load_baseline_regressions,
+    analyze_null_patterns, export_json, filter_count, load_baseline_regressions,
     parse_predicate, BaselineProfile, ColumnSchema,
 };
 use std::path::Path;
@@ -148,15 +148,10 @@ fn handle_sidebar(app: &mut App, key: KeyEvent) {
             app.view = View::FilterInput;
             app.focus = Focus::Overlay;
         }
-        KeyCode::Char('V') => match detect_duplicates(std::path::Path::new(&app.input_path)) {
-            Ok(report) => {
-                app.duplicate_report = Some(report);
-                app.view = View::Duplicates;
-            }
-            Err(e) => {
-                app.status_msg = format!("dup detect error: {e}");
-            }
-        },
+        KeyCode::Char('V') => {
+            app.pending_duplicate_scan = true;
+            app.status_msg = "Scanning duplicates…".into();
+        }
         KeyCode::Char('C') => {
             app.null_patterns = analyze_null_patterns(&app.agg_stats);
             app.view = View::NullPatterns;

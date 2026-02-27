@@ -122,6 +122,8 @@ pub struct App {
     pub watch_rx: Option<std::sync::mpsc::Receiver<()>>, // reload events from filesystem watcher
     pub sidebar_width: u16, // runtime-adjustable sidebar width, clamped 15..=60
     pub sidebar_visible: bool, // backtick toggle; also auto-hidden when terminal < 80 cols
+    pub pending_duplicate_scan: bool,
+    pub duplicate_rx: Option<std::sync::mpsc::Receiver<Result<parquet_lens_core::DuplicateReport, String>>>,
 }
 
 impl App {
@@ -182,6 +184,8 @@ impl App {
             watch_rx: None,
             sidebar_width,
             sidebar_visible: true,
+            pending_duplicate_scan: false,
+            duplicate_rx: None,
         }
     }
     pub fn columns(&self) -> &[ColumnSchema] {

@@ -648,6 +648,32 @@ fn run_tui(
         if scan_done {
             app.progress_rx = None;
         }
+        // spawn duplicate scan when pending flag is set
+        if app.pending_duplicate_scan {
+            app.pending_duplicate_scan = false;
+            let path = std::path::PathBuf::from(&app.input_path);
+            let (tx, rx) = std::sync::mpsc::channel::<Result<parquet_lens_core::DuplicateReport, String>>();
+            app.duplicate_rx = Some(rx);
+            tokio::task::spawn_blocking(move || {
+                let res = detect_duplicates(&path).map_err(|e| e.to_string());
+                let _ = tx.send(res);
+            });
+        }
+        // poll async duplicate scan channel
+        if let Some(rx) = &app.duplicate_rx {
+            if let Ok(res) = rx.try_recv() {
+                match res {
+                    Ok(report) => {
+                        app.duplicate_report = Some(report);
+                        app.view = tui::app::View::Duplicates;
+                    }
+                    Err(e) => {
+                        app.status_msg = format!("dup detect error: {e}");
+                    }
+                }
+                app.duplicate_rx = None;
+            }
+        }
         if event::poll(tick)? {
             match event::read()? {
                 Event::Key(key) => {
