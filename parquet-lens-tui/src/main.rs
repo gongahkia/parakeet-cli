@@ -143,6 +143,10 @@ enum Commands {
         format: String,
         #[arg(long)]
         json: bool,
+        #[arg(long, value_parser = parse_sample_pct)]
+        sample: Option<f64>,
+        #[arg(long)]
+        sample_seed: Option<u64>,
     },
     Compare {
         path1: String,
@@ -210,7 +214,9 @@ async fn main() -> anyhow::Result<()> {
             save,
             format,
             json,
-        } => run_summary(path, save, &format, json, &config)?,
+            sample,
+            sample_seed,
+        } => run_summary(path, save, &format, json, sample, sample_seed, &config)?,
         Commands::Compare { path1, path2 } => run_compare(path1, path2, config)?,
         Commands::Export {
             path,
@@ -804,6 +810,8 @@ fn run_summary(
     save: bool,
     format: &str,
     json_out: bool,
+    sample_pct: Option<f64>,
+    sample_seed: Option<u64>,
     config: &Config,
 ) -> anyhow::Result<()> {
     let paths = rp(&input_path)?;
@@ -811,9 +819,22 @@ fn run_summary(
         anyhow::bail!("No Parquet files found: {input_path}");
     }
     let (dataset, _, meta) = load_file_stats(&paths)?;
-    let col_stats = read_column_stats(&meta);
     let total_rows = dataset.total_rows;
-    let agg_stats = aggregate_column_stats(&col_stats, total_rows);
+    let col_stats = if let Some(pct) = sample_pct {
+        let cfg = SampleConfig { percentage: pct, no_extrapolation: false, seed: sample_seed };
+        match sample_row_groups(&paths[0].path, &cfg, 20) {
+            Ok(sp) => sp.agg_stats,
+            Err(e) => {
+                eprintln!("sample error: {e}");
+                let cs = read_column_stats(&meta);
+                aggregate_column_stats(&cs, total_rows)
+            }
+        }
+    } else {
+        let cs = read_column_stats(&meta);
+        aggregate_column_stats(&cs, total_rows)
+    };
+    let agg_stats = col_stats;
     let encodings = analyze_encodings(&meta);
     let quality_scores = compute_quality_scores(&agg_stats, &encodings, total_rows);
     let total_cells = total_rows * dataset.combined_schema.len() as i64;
