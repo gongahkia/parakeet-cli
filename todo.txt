@@ -2,7 +2,6 @@
 
 
 
-(B) Add --validate flag to Inspect subcommand: when set skip TUI launch; run detect_repair_suggestions, load_baseline_regressions, summarize_quality; print results to stdout; exit 0 if no issues exit 1 if issues found +feature +cli
 (B) Add profile_timeseries output to export_json: include timeseries_profiles field in the JSON export document when timeseries data is non-empty +feature +core
 (B) Add profile_nested_columns output to export_json: include nested_profiles field in JSON export document +feature +core
 (B) Add repair_suggestions to export_json: include repair_suggestions field in JSON export document +feature +core

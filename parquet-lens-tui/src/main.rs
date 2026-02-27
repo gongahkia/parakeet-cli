@@ -134,6 +134,8 @@ enum Commands {
         watch_interval: Option<u64>,
         #[arg(long)]
         fail_on_regression: bool,
+        #[arg(long)]
+        validate: bool,
     },
     Summary {
         path: String,
@@ -221,18 +223,23 @@ async fn main() -> anyhow::Result<()> {
             sample_seed,
             watch_interval,
             fail_on_regression,
+            validate,
         } => {
-            run_tui(
-                path,
-                config,
-                sample,
-                no_sample_extrapolation,
-                save_baseline,
-                sample_seed,
-                watch,
-                watch_interval,
-                fail_on_regression,
-            )?
+            if validate {
+                run_validate(path, sample, sample_seed, &config)?;
+            } else {
+                run_tui(
+                    path,
+                    config,
+                    sample,
+                    no_sample_extrapolation,
+                    save_baseline,
+                    sample_seed,
+                    watch,
+                    watch_interval,
+                    fail_on_regression,
+                )?
+            }
         }
         Commands::Summary {
             path,
@@ -341,6 +348,40 @@ fn run_schema(input_path: String, json: bool) -> anyhow::Result<()> {
             println!("{:<40} {:<12} {:<20} {}", col.name, col.physical_type, col.logical_type.as_deref().unwrap_or("-"), col.repetition);
         }
     }
+    Ok(())
+}
+
+fn run_validate(input_path: String, sample_pct: Option<f64>, sample_seed: Option<u64>, config: &Config) -> anyhow::Result<()> {
+    let paths = rp(&input_path)?;
+    if paths.is_empty() {
+        eprintln!("file not found: {input_path}");
+        std::process::exit(2);
+    }
+    let (dataset, _, meta) = load_file_stats(&paths).map_err(|e| { eprintln!("load error: {e}"); std::process::exit(2); anyhow::anyhow!("{e}") })?;
+    let total_rows = dataset.total_rows;
+    let col_stats = if let Some(pct) = sample_pct {
+        let cfg = SampleConfig { percentage: pct, no_extrapolation: false, seed: sample_seed };
+        sample_row_groups(&paths[0].path, &cfg, 20).map(|sp| sp.agg_stats).unwrap_or_else(|_| { let cs = read_column_stats(&meta); aggregate_column_stats(&cs, total_rows) })
+    } else {
+        let cs = read_column_stats(&meta);
+        aggregate_column_stats(&cs, total_rows)
+    };
+    let encodings = analyze_encodings(&meta);
+    let row_groups = profile_row_groups(&meta);
+    let quality_scores = compute_quality_scores(&col_stats, &encodings, total_rows);
+    let total_cells = total_rows * dataset.combined_schema.len() as i64;
+    let total_nulls: u64 = col_stats.iter().map(|s| s.total_null_count).sum();
+    let quality = summarize_quality(quality_scores.clone(), total_cells, total_nulls, dataset.schema_inconsistencies.is_empty(), &col_stats);
+    let suggestions = detect_repair_suggestions(&row_groups, &col_stats, &encodings);
+    let schema: Vec<parquet_lens_core::ColumnSchema> = dataset.combined_schema.iter().map(|c| parquet_lens_core::ColumnSchema { name: c.name.clone(), physical_type: c.physical_type.clone(), logical_type: c.logical_type.clone(), repetition: c.repetition.clone(), max_def_level: c.max_def_level, max_rep_level: c.max_rep_level }).collect();
+    let (_baseline, regressions) = load_baseline_regressions(&paths[0].path, &col_stats, &quality_scores, &schema);
+    let has_issues = !suggestions.is_empty() || !regressions.is_empty() || quality.overall_score < 80;
+    println!("overall_quality: {}/100", quality.overall_score);
+    println!("repair_suggestions: {}", suggestions.len());
+    for s in &suggestions { println!("  [{}] {}", s.severity, s.issue); }
+    println!("regressions: {}", regressions.len());
+    for r in &regressions { println!("  [{}] {} — {}", r.kind, r.column, r.detail); }
+    if has_issues { std::process::exit(1); }
     Ok(())
 }
 
