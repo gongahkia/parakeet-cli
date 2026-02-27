@@ -1289,7 +1289,8 @@ fn render_data_preview(frame: &mut Frame, app: &App, area: Rect) {
 }
 
 fn render_filter_overlay(frame: &mut Frame, app: &App, area: Rect) {
-    let popup = centered_rect(60, 30, area);
+    let has_samples = app.filter_result.as_ref().map(|r| !r.sample_rows.is_empty()).unwrap_or(false);
+    let popup = if has_samples { centered_rect(80, 70, area) } else { centered_rect(60, 30, area) };
     frame.render_widget(ratatui::widgets::Clear, popup);
     let result_line = if let Some(r) = &app.filter_result {
         format!(
@@ -1299,22 +1300,43 @@ fn render_filter_overlay(frame: &mut Frame, app: &App, area: Rect) {
     } else {
         String::from("Enter expression, press Enter to run, Esc to cancel")
     };
-    let content = format!(
-        "> {}_
-
-{}",
-        app.filter_input, result_line
-    );
-    frame.render_widget(
-        Paragraph::new(content)
-            .block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .title("Filter (P) — WHERE expression"),
-            )
-            .wrap(Wrap { trim: false }),
-        popup,
-    );
+    if has_samples {
+        // split: input line at top, sample table below
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(4), Constraint::Min(0)])
+            .split(popup);
+        let input_text = format!("> {}_\n\n{}", app.filter_input, result_line);
+        frame.render_widget(
+            Paragraph::new(input_text)
+                .block(Block::default().borders(Borders::ALL).title("Filter (P)"))
+                .wrap(Wrap { trim: false }),
+            chunks[0],
+        );
+        if let Some(r) = &app.filter_result {
+            let header_cells: Vec<Cell> = r.sample_headers.iter().map(|h| Cell::from(h.as_str())).collect();
+            let header = Row::new(header_cells).style(Style::default().add_modifier(Modifier::BOLD));
+            let rows: Vec<Row> = r.sample_rows.iter().map(|row| {
+                Row::new(row.iter().map(|v| Cell::from(v.as_str())).collect::<Vec<_>>())
+            }).collect();
+            let col_count = r.sample_headers.len().max(1);
+            let widths: Vec<Constraint> = (0..col_count).map(|_| Constraint::Min(10)).collect();
+            frame.render_widget(
+                Table::new(rows, widths).header(header).block(
+                    Block::default().borders(Borders::ALL).title("Sample rows (max 10)"),
+                ),
+                chunks[1],
+            );
+        }
+    } else {
+        let content = format!("> {}_\n\n{}", app.filter_input, result_line);
+        frame.render_widget(
+            Paragraph::new(content)
+                .block(Block::default().borders(Borders::ALL).title("Filter (P) — WHERE expression"))
+                .wrap(Wrap { trim: false }),
+            popup,
+        );
+    }
 }
 
 fn render_help(frame: &mut Frame, app: &App, area: Rect) {
