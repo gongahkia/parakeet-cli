@@ -83,6 +83,12 @@ fn handle_sidebar(app: &mut App, key: KeyEvent) {
         KeyCode::Char(']') => {
             app.sidebar_width = (app.sidebar_width + 1).min(60);
         }
+        KeyCode::Char('j') | KeyCode::Down if app.view == View::Compare => {
+            app.compare_sidebar_col += 1;
+        }
+        KeyCode::Char('k') | KeyCode::Up if app.view == View::Compare => {
+            app.compare_sidebar_col = app.compare_sidebar_col.saturating_sub(1);
+        }
         KeyCode::Char('j') | KeyCode::Down => app.sidebar_down(),
         KeyCode::Char('k') | KeyCode::Up => app.sidebar_up(),
         KeyCode::PageDown => {

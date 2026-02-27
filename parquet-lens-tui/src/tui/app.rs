@@ -92,7 +92,6 @@ pub struct App {
     pub should_quit: bool,
     pub config: Config,
     pub comparison: Option<DatasetComparison>,
-    #[allow(dead_code)]
     pub compare_sidebar_col: usize,
     pub sidebar_search: String,
     pub sidebar_searching: bool,
