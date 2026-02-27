@@ -2,7 +2,6 @@
 
 
 
-(B) Add integration test fixture: create tests/fixtures/ directory in parquet-lens-core with a minimal valid .parquet file; add integration test calling open_parquet_file, read_column_stats, aggregate_column_stats, score_column on the fixture +test +infra
 (B) Add unit tests for detect_repair_suggestions: test zero row_groups returns empty Vec; test fragmentation trigger (>100 rgs avg <64MB); test high-null column suggestion (>50%); test large dict page suggestion +test +core
 (B) Add parquet-lens filter subcommand: Commands::Filter { path: String, expr: String, output: Option<String>, limit: Option<usize> } that calls parse_predicate then filter_count and optionally exports matching rows to CSV +feature +cli
 (B) Implement filter_rows fn in filter.rs: like filter_count but yields matching RecordBatches up to limit rows for use in filter subcommand CSV export path +feature +core
