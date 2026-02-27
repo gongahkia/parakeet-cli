@@ -96,6 +96,7 @@ fn render_sidebar(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
         });
     let cols = app.columns();
     let indices = app.filtered_column_indices();
+    let name_w = (area.width.saturating_sub(6)) as usize; // width-6 for bmark+icon+space+quality
     let items: Vec<ListItem> = indices
         .iter()
         .map(|&i| {
@@ -119,8 +120,9 @@ fn render_sidebar(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
             } else {
                 " "
             };
+            let name_trunc = truncate(&col.name, name_w);
             ListItem::new(Line::from(vec![
-                Span::raw(format!("{bmark}{icon} {:<16}", truncate(&col.name, 16))),
+                Span::raw(format!("{bmark}{icon} {:<width$}", name_trunc, width = name_w)),
                 Span::styled(format!("{:3}%", quality), Style::default().fg(qcolor)),
             ]))
         })
