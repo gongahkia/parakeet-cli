@@ -827,6 +827,29 @@ pub fn filter_count(path: &Path, predicate: &Predicate) -> Result<FilterResult, 
     })
 }
 
+#[cfg(test)]
+mod tests_parse_predicate {
+    use super::*;
+
+    fn p(s: &str) -> Predicate { parse_predicate(s).expect(s) }
+
+    #[test] fn eq_int() { assert!(matches!(p("age = 30"), Predicate::Comparison { op: CmpOp::Eq, .. })); }
+    #[test] fn ne_int() { assert!(matches!(p("age != 30"), Predicate::Comparison { op: CmpOp::Ne, .. })); }
+    #[test] fn lt_int() { assert!(matches!(p("age < 30"), Predicate::Comparison { op: CmpOp::Lt, .. })); }
+    #[test] fn le_int() { assert!(matches!(p("age <= 30"), Predicate::Comparison { op: CmpOp::Le, .. })); }
+    #[test] fn gt_int() { assert!(matches!(p("age > 30"), Predicate::Comparison { op: CmpOp::Gt, .. })); }
+    #[test] fn ge_int() { assert!(matches!(p("age >= 30"), Predicate::Comparison { op: CmpOp::Ge, .. })); }
+    #[test] fn is_null() { assert!(matches!(p("name IS NULL"), Predicate::IsNull(_))); }
+    #[test] fn is_not_null() { assert!(matches!(p("name IS NOT NULL"), Predicate::IsNotNull(_))); }
+    #[test] fn in_list() { assert!(matches!(p("city IN ('A','B')"), Predicate::In { .. })); }
+    #[test] fn like_pat() { assert!(matches!(p("name LIKE 'foo%'"), Predicate::Like { .. })); }
+    #[test] fn and_combo() { assert!(matches!(p("a = 1 AND b = 2"), Predicate::And(_, _))); }
+    #[test] fn or_combo() { assert!(matches!(p("a = 1 OR b = 2"), Predicate::Or(_, _))); }
+    #[test] fn not_combo() { assert!(matches!(p("NOT a = 1"), Predicate::Not(_))); }
+    #[test] fn malformed_empty() { assert!(parse_predicate("").is_err()); }
+    #[test] fn malformed_dangling() { assert!(parse_predicate("a =").is_err()); }
+}
+
 fn col_val_str(col: &dyn arrow::array::Array, row: usize) -> String {
     if col.is_null(row) {
         return "NULL".into();
