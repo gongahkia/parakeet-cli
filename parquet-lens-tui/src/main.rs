@@ -424,15 +424,17 @@ fn run_tui(
         detect_repair_suggestions(&app.row_groups, &app.agg_stats, &app.encoding_analysis);
     app.rg_size_recommendation = recommend_row_group_size(&app.row_groups);
 
-    // time-series profiling — detect timestamp/date columns from schema
+    // time-series profiling — detect timestamp/date/time columns from schema
     let ts_cols: Vec<String> = dataset
         .combined_schema
         .iter()
         .filter(|c| {
-            c.logical_type
-                .as_deref()
-                .map(|t| t.contains("Timestamp") || t.contains("Date"))
-                .unwrap_or(false)
+            let logical_match = c.logical_type.as_deref().map(|t| {
+                t.contains("Timestamp") || t.contains("Date") || t.contains("Time")
+            }).unwrap_or(false);
+            // fallback: INT96 with no logical type = legacy Spark timestamp
+            let int96_fallback = c.physical_type == "INT96" && c.logical_type.is_none();
+            logical_match || int96_fallback
         })
         .map(|c| c.name.clone())
         .collect();
