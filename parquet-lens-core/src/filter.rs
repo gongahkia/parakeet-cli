@@ -5,7 +5,7 @@ use arrow::array::{
 use arrow::record_batch::RecordBatch;
 use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
 use parquet::file::metadata::RowGroupMetaData;
-use parquet::file::reader::{FileReader, SerializedFileReader};
+use parquet::file::metadata::ParquetMetaData;
 use parquet::file::statistics::Statistics;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
@@ -739,8 +739,8 @@ fn predicate_columns(pred: &Predicate) -> Vec<&str> {
 
 pub fn filter_count(path: &Path, predicate: &Predicate) -> Result<FilterResult, String> {
     let file = File::open(path).map_err(|e| e.to_string())?;
-    let reader = SerializedFileReader::new(file).map_err(|e| e.to_string())?;
-    let meta = reader.metadata();
+    let builder = ParquetRecordBatchReaderBuilder::try_new(file).map_err(|e| e.to_string())?;
+    let meta: std::sync::Arc<ParquetMetaData> = builder.metadata().clone(); // single open
     // bounds check: verify all referenced columns exist in schema
     let schema = meta.file_metadata().schema_descr();
     let schema_names: Vec<String> = (0..schema.num_columns())
@@ -769,8 +769,6 @@ pub fn filter_count(path: &Path, predicate: &Predicate) -> Result<FilterResult, 
     let mut matched_rows = 0u64;
     let mut scanned_rows = 0u64;
     if !rgs_to_scan.is_empty() {
-        let file2 = File::open(path).map_err(|e| e.to_string())?;
-        let builder = ParquetRecordBatchReaderBuilder::try_new(file2).map_err(|e| e.to_string())?;
         let selection = parquet::arrow::arrow_reader::RowSelection::from(
             (0..total_rgs)
                 .map(|i| {
