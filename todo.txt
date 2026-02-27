@@ -2,43 +2,6 @@
 
 
 
-(B) Fix sidebar responsive width: replace Constraint::Length(30) in render() layout with Constraint::Percentage(25) bounded by a minimum of 18 chars for the sidebar pane +bug +tui
-(B) Add sidebar column name truncation: in render_sidebar compute available sidebar text width from the actual rendered Rect width and truncate column names to width-6 chars with a trailing ellipsis character when name exceeds available space +feature +tui
-(B) Add [ and ] keybinds to resize sidebar width at runtime: store sidebar_width: u16 in App (default 30) clamped to 15..=60; persist to Session; apply in render() layout split +feature +tui
-(B) Add config.display.sidebar_width: Option<u16> to DisplayConfig in parquet-lens-common/src/config.rs with default None (falls back to 30); read it in App::new to initialize sidebar_width +feature +common
-(B) Add responsive narrow terminal mode: when terminal width < 80 columns hide sidebar entirely and show only the main panel; add backtick keybind to toggle sidebar visibility +feature +tui
-(B) Fix V keybind blocking TUI: move detect_duplicates call in handle_sidebar V branch into spawn_blocking with a oneshot channel; add pending_duplicate_scan: bool and duplicate_rx: Option<Receiver<Result<DuplicateReport, String>>> to App; poll the receiver each tick like full-scan +bug +tui
-(B) Fix schema consistency check O(n^2): in read_metadata_parallel replace ref_col_names Vec<&str> with HashSet<&str> and other_names Vec<&str> with HashSet<&str> for O(1) lookups in the schema diff loop +perf +core
-(B) Fix filter_count double file open: open the file once call ParquetRecordBatchReaderBuilder::try_new() to get both metadata and the builder use .metadata() clone for schema/rg checks then .build() the reader from the same builder +perf +core
-(B) Fix detect_repair_suggestions panic: add guard at top of fn returning empty Vec when rg_count == 0 before the integer division avg_bytes calculation and avg_page calculation +bug +core
-(B) Fix summarize_quality schema_consistent: in run_summary replace the hardcoded true argument to summarize_quality with dataset.schema_inconsistencies.is_empty() +bug +cli
-(B) Fix quality score metric: change summarize_quality overall_score from arithmetic mean to weighted mean by column total_data_page_size so high-null large columns penalize the score proportionally; accept agg_stats slice alongside quality scores +feature +core
-(B) Fix worst_columns filter in summarize_quality: add .filter(|s| s.score < 80) before .take(5) so only genuinely poor columns appear in worst_columns list +bug +core
-(B) Add bloom filter disclosure in Duplicates TUI view: in the render_duplicates panel add a static Line below estimated_duplicate_pct reading "(bloom filter ~1% false-positive rate -- use --exact flag for authoritative counts)" +feature +tui
-(B) Add exact dedup path in detect_duplicates: for files where total_rows_estimate <= 5_000_000 use a HashSet<u64> instead of Bloom<u64> to produce exact counts; document the threshold in a comment and expose via exact: bool param +feature +core
-(B) Add --exact flag to Duplicates subcommand: when set force HashSet-based exact dedup regardless of row count; otherwise use bloom filter heuristic +feature +cli
-(B) Implement ProgressState::Cancelled: add Esc keybind handling during full-scan (when progress is Running) to set progress to Cancelled drop progress_rx and set pending_full_scan to false +feature +tui
-(B) Implement compare_sidebar_col navigation in Compare view: when view == View::Compare and focus == Sidebar handle j/k/Up/Down to increment/decrement compare_sidebar_col; remove #[allow(dead_code)] attribute +feature +tui
-(B) Add filter sample rows to FilterResult: add sample_rows: Vec<Vec<String>> (max 10) and sample_headers: Vec<String> fields to FilterResult struct; populate from first matching batch inside filter_count +feature +core
-(B) Render filter sample rows in TUI: after a successful P-keybind filter display sample_rows in a scrollable table overlay or main panel instead of only updating status_msg +feature +tui
-(B) Add --sample and --sample-seed flags to Summary subcommand: mirror Inspect flag definitions; pass SampleConfig to a new run_summary_sampled path that calls sample_row_groups before quality scoring +feature +cli
-(B) Add --sample and --sample-seed flags to Export subcommand: when set run sample_row_groups first and export sampled agg_stats instead of full metadata stats +feature +cli
-(B) Fix baseline key for S3/GCS: in BaselineProfile::save when path starts with s3:// or gs:// emit eprintln! warning noting that in-place file updates silently collide with this baseline key; add TODO comment recommending content-hash keying as a future improvement +stability +core
-(B) Add PARQUET_LENS_CONFIG env var support: in Config::load check std::env::var("PARQUET_LENS_CONFIG") first and use that path if set before falling back to dirs::config_dir() path +feature +common
-(B) Add SIGTERM handler: in run_tui register a ctrlc or signal-hook SIGTERM handler that calls disable_raw_mode() and execute!(LeaveAlternateScreen) before process::exit(0) to prevent terminal corruption on kill +stability +tui
-(B) Fix profile_timeseries return type: change signature from anyhow::Result to Result<Vec<TimeSeriesProfile>, ParquetLensError> and update call site in run_tui +refactor +core
-(B) Fix profile_timeseries INT96 detection: in run_tui ts_cols detection also match logical_type containing "Time" and add a fallback including columns with physical_type == "INT96" and None logical type as legacy Spark timestamp candidates +bug +core
-(B) Fix timeseries error propagation: in run_tui Err branch of profile_timeseries match add eprintln!("timeseries warning: {e}") alongside setting status_msg so CLI/DevOps stderr captures it +bug +cli
-(B) Fix nested_profiles error silently dropped: change if let Ok(np) = profile_nested_columns in run_tui to a match with an Err arm that calls eprintln! +bug +cli
-(B) Add GcsConfig to Config: add pub gcs: GcsConfig with fields project_id: Option<String> and credentials_file: Option<String> to Config struct in parquet-lens-common/src/config.rs; update Config::default() +feature +common
-(B) Thread GcsConfig into read_gcs_parquet_metadata: pass credentials_file path to reqwest client builder in gcs_reader.rs; if credentials_file is None attempt application-default credentials via GOOGLE_APPLICATION_CREDENTIALS env var +feature +core
-(B) Fix parse_predicate escaped quotes: in tokenize() when inside a quoted string literal handle \' and \" escape sequences by consuming the backslash and pushing the following quote char without ending the token +bug +core
-(B) Add cargo test step to ci.yml: add step running cargo test --workspace after the clippy step so tests are enforced on every push +infra
-(B) Add cargo audit step to ci.yml: add step installing cargo-audit and running cargo audit to check for known CVEs in dependencies +infra
-(B) Add CI matrix for macOS: extend ci.yml jobs.check.runs-on to a matrix of [ubuntu-latest, macos-latest] since the project targets macOS-primary users +infra
-(B) Add unit tests for parse_predicate: in filter.rs #[cfg(test)] block test =, !=, <, <=, >, >= operators; IS NULL; IS NOT NULL; IN list; LIKE pattern; AND/OR/NOT combinations; and malformed inputs returning Err +test +core
-(B) Add unit tests for score_column: in quality.rs #[cfg(test)] block test null_penalty calculation at 0% 5% 50% 100% null rates; constant column detection at distinct_count=0 and distinct_count=1; cardinality_flag when distinct==total_rows +test +core
-(B) Add unit tests for like_match_at: in filter.rs #[cfg(test)] block test % wildcard at start/middle/end; _ single-char match; combined %_% pattern; empty string input; no-wildcard exact match +test +core
 (B) Add unit tests for can_skip_row_group: in filter.rs #[cfg(test)] block test AND skip logic (either side false skips); OR skip logic (both sides false skips); NOT always returns false; Comparison skip for Int32/Int64 out-of-range values +test +core
 (B) Add unit tests for identify_engine: in engine.rs #[cfg(test)] block test spark/pyarrow/duckdb/impala/hive/trino/flink/pandas/parquet-go/parquet4s created_by strings and unknown fallback returns empty hints +test +core
 (B) Add integration test fixture: create tests/fixtures/ directory in parquet-lens-core with a minimal valid .parquet file; add integration test calling open_parquet_file, read_column_stats, aggregate_column_stats, score_column on the fixture +test +infra
