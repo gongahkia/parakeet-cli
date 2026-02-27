@@ -21,3 +21,4 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - run: cargo fmt --check
       - run: cargo clippy -- -D warnings
+      - run: cargo test --workspace
