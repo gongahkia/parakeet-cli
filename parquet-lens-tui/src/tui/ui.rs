@@ -206,6 +206,11 @@ fn render_duplicates(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
                 Style::default().fg(color),
             ),
         ]),
+        Line::from(""),
+        Line::from(Span::styled(
+            "(bloom filter ~1% false-positive rate -- use --exact flag for authoritative counts)",
+            Style::default().fg(theme.warning),
+        )),
     ];
     frame.render_widget(
         Paragraph::new(lines)
