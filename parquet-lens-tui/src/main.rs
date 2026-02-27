@@ -451,8 +451,9 @@ fn run_tui(
     }
 
     // nested column profiling
-    if let Ok(np) = profile_nested_columns(&paths[0].path) {
-        app.nested_profiles = np;
+    match profile_nested_columns(&paths[0].path) {
+        Ok(np) => app.nested_profiles = np,
+        Err(e) => eprintln!("nested profile warning: {e}"),
     }
 
     // engine identification from created_by
