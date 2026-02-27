@@ -79,7 +79,7 @@ impl Theme {
             string: Color::Rgb(0x00, 0x80, 0xFF), // blue instead of green
             temporal: Color::Yellow,
             boolean: Color::Magenta,
-            error: Color::Rgb(0xFF, 0x8C, 0x00),  // orange instead of red
+            error: Color::Rgb(0xFF, 0x8C, 0x00), // orange instead of red
             warning: Color::LightYellow,
             success: Color::Rgb(0x00, 0x80, 0xFF), // blue instead of green
         }

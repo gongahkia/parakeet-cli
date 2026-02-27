@@ -56,13 +56,16 @@ pub fn export_json(
         doc["engine_info"] = serde_json::to_value(ei).unwrap_or(serde_json::Value::Null);
     }
     if !timeseries_profiles.is_empty() {
-        doc["timeseries_profiles"] = serde_json::to_value(timeseries_profiles).unwrap_or(serde_json::Value::Null);
+        doc["timeseries_profiles"] =
+            serde_json::to_value(timeseries_profiles).unwrap_or(serde_json::Value::Null);
     }
     if !nested_profiles.is_empty() {
-        doc["nested_profiles"] = serde_json::to_value(nested_profiles).unwrap_or(serde_json::Value::Null);
+        doc["nested_profiles"] =
+            serde_json::to_value(nested_profiles).unwrap_or(serde_json::Value::Null);
     }
     if !repair_suggestions.is_empty() {
-        doc["repair_suggestions"] = serde_json::to_value(repair_suggestions).unwrap_or(serde_json::Value::Null);
+        doc["repair_suggestions"] =
+            serde_json::to_value(repair_suggestions).unwrap_or(serde_json::Value::Null);
     }
     let mut file = std::fs::File::create(output_path)?;
     serde_json::to_writer_pretty(&mut file, &doc)
@@ -113,9 +116,16 @@ pub fn export_csv(
     if !row_groups.is_empty() {
         let rg_path = output_path.with_file_name("row_groups.csv");
         let mut rg_file = std::fs::File::create(&rg_path)?;
-        writeln!(rg_file, "index,row_count,total_byte_size,compressed_size,compression_ratio")?;
+        writeln!(
+            rg_file,
+            "index,row_count,total_byte_size,compressed_size,compression_ratio"
+        )?;
         for rg in row_groups {
-            writeln!(rg_file, "{},{},{},{},{:.4}", rg.index, rg.num_rows, rg.total_byte_size, rg.compressed_size, rg.compression_ratio)?;
+            writeln!(
+                rg_file,
+                "{},{},{},{},{:.4}",
+                rg.index, rg.num_rows, rg.total_byte_size, rg.compressed_size, rg.compression_ratio
+            )?;
         }
     }
     Ok(())

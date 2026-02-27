@@ -6,8 +6,8 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use parquet::file::metadata::ParquetMetaData;
 use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
+use parquet::file::metadata::ParquetMetaData;
 use parquet_lens_core::{
     aggregate_column_stats,
     analyze_compression,
@@ -25,7 +25,6 @@ use parquet_lens_core::{
     load_baseline_regressions,
     open_parquet_file, // resolve_paths used in rp() helper
     print_summary,
-    profile_columns,
     profile_nested_columns,
     profile_row_groups,
     profile_timeseries,
@@ -101,9 +100,8 @@ fn load_file_stats(
     let dataset = read_metadata_parallel(paths).map_err(|e| anyhow::anyhow!("{e}"))?;
     let p0_str = paths[0].path.to_string_lossy().to_string();
     let (file_info, meta) = tokio::task::block_in_place(|| {
-        tokio::runtime::Handle::current().block_on(
-            parquet_lens_core::open_parquet_auto(&p0_str, None),
-        )
+        tokio::runtime::Handle::current()
+            .block_on(parquet_lens_core::open_parquet_auto(&p0_str, None))
     })
     .map_err(|e| anyhow::anyhow!("{e}"))?;
     Ok((dataset, file_info, meta))
@@ -191,7 +189,9 @@ enum Commands {
     ///   0 — no regressions found
     ///   1 — regressions found (when --fail-on-regression is set)
     ///   2 — file not found or unreadable
-    #[command(long_about = "Check quality and baseline regressions without launching TUI.\n\nExit codes:\n  0 — no regressions found\n  1 — regressions found (when --fail-on-regression is set)\n  2 — file not found or unreadable")]
+    #[command(
+        long_about = "Check quality and baseline regressions without launching TUI.\n\nExit codes:\n  0 — no regressions found\n  1 — regressions found (when --fail-on-regression is set)\n  2 — file not found or unreadable"
+    )]
     Check {
         path: String,
         #[arg(long, default_value = "plain")]
@@ -264,7 +264,17 @@ async fn main() -> anyhow::Result<()> {
             sample_seed,
             columns,
             no_color,
-        } => run_summary(path, save, &format, json, sample, sample_seed, columns, no_color, &config)?,
+        } => run_summary(
+            path,
+            save,
+            &format,
+            json,
+            sample,
+            sample_seed,
+            columns,
+            no_color,
+            &config,
+        )?,
         Commands::Compare { path1, path2 } => run_compare(path1, path2, config)?,
         Commands::Export {
             path,
@@ -274,26 +284,63 @@ async fn main() -> anyhow::Result<()> {
             sample,
             sample_seed,
             limit,
-        } => run_export(path, format, columns, output, sample, sample_seed, limit, config)?,
-        Commands::Duplicates { path, exact, json, threshold } => run_duplicates(path, exact, json, threshold)?,
-        Commands::Check { path, format, fail_on_regression } => run_check(path, &format, fail_on_regression)?,
-        Commands::Filter { path, expr, output, limit } => run_filter(path, expr, output, limit)?,
+        } => run_export(
+            path,
+            format,
+            columns,
+            output,
+            sample,
+            sample_seed,
+            limit,
+            config,
+        )?,
+        Commands::Duplicates {
+            path,
+            exact,
+            json,
+            threshold,
+        } => run_duplicates(path, exact, json, threshold)?,
+        Commands::Check {
+            path,
+            format,
+            fail_on_regression,
+        } => run_check(path, &format, fail_on_regression)?,
+        Commands::Filter {
+            path,
+            expr,
+            output,
+            limit,
+        } => run_filter(path, expr, output, limit)?,
         Commands::Schema { path, json } => run_schema(path, json)?,
         Commands::Completions { shell } => {
             use clap::CommandFactory;
-            clap_complete::generate(shell, &mut Cli::command(), "parquet-lens", &mut std::io::stdout());
+            clap_complete::generate(
+                shell,
+                &mut Cli::command(),
+                "parquet-lens",
+                &mut std::io::stdout(),
+            );
         }
     }
     Ok(())
 }
 
-fn run_duplicates(input_path: String, exact: bool, json: bool, threshold: Option<f64>) -> anyhow::Result<()> {
+fn run_duplicates(
+    input_path: String,
+    exact: bool,
+    json: bool,
+    threshold: Option<f64>,
+) -> anyhow::Result<()> {
     let dup_path = if is_s3_uri(&input_path) || is_gcs_uri(&input_path) {
         // download to tempfile for cloud paths
         let bytes = if is_s3_uri(&input_path) {
             tokio::task::block_in_place(|| {
-                tokio::runtime::Handle::current()
-                    .block_on(parquet_lens_core::read_s3_range(&input_path, 0, i64::MAX, None))
+                tokio::runtime::Handle::current().block_on(parquet_lens_core::read_s3_range(
+                    &input_path,
+                    0,
+                    i64::MAX,
+                    None,
+                ))
             })
             .map_err(|e| anyhow::anyhow!("{e}"))?
         } else {
@@ -303,7 +350,9 @@ fn run_duplicates(input_path: String, exact: bool, json: bool, threshold: Option
                     .block_on(parquet_lens_core::read_gcs_parquet_metadata(&input_path))
             })
             .map_err(|_| anyhow::anyhow!("GCS download not fully supported for duplicates"))?;
-            anyhow::bail!("GCS duplicate detection requires local file download (not yet implemented)");
+            anyhow::bail!(
+                "GCS duplicate detection requires local file download (not yet implemented)"
+            );
         };
         let mut tmp = tempfile::NamedTempFile::new()?;
         std::io::Write::write_all(&mut tmp, &bytes)?;
@@ -311,40 +360,58 @@ fn run_duplicates(input_path: String, exact: bool, json: bool, threshold: Option
     } else {
         std::path::PathBuf::from(&input_path)
     };
-    let report =
-        detect_duplicates(&dup_path, exact).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let report = detect_duplicates(&dup_path, exact).map_err(|e| anyhow::anyhow!("{e}"))?;
     if json {
         println!("{}", serde_json::to_string_pretty(&report)?);
     } else {
         println!("{:<24} {}", "total_rows:", report.total_rows);
-        println!("{:<24} {}", "estimated_duplicates:", report.estimated_duplicates);
-        println!("{:<24} {:.2}%", "estimated_duplicate_pct:", report.estimated_duplicate_pct);
+        println!(
+            "{:<24} {}",
+            "estimated_duplicates:", report.estimated_duplicates
+        );
+        println!(
+            "{:<24} {:.2}%",
+            "estimated_duplicate_pct:", report.estimated_duplicate_pct
+        );
     }
     if let Some(thr) = threshold {
         if report.estimated_duplicate_pct > thr {
-            eprintln!("FAIL: duplicate rate {:.2}% exceeds threshold {:.2}%", report.estimated_duplicate_pct, thr);
+            eprintln!(
+                "FAIL: duplicate rate {:.2}% exceeds threshold {:.2}%",
+                report.estimated_duplicate_pct, thr
+            );
             std::process::exit(1);
         }
     }
     Ok(())
 }
 
-fn run_filter(input_path: String, expr: String, output: Option<String>, limit: Option<usize>) -> anyhow::Result<()> {
-    let predicate = parquet_lens_core::parse_predicate(&expr).map_err(|e| anyhow::anyhow!("{e}"))?;
+fn run_filter(
+    input_path: String,
+    expr: String,
+    output: Option<String>,
+    limit: Option<usize>,
+) -> anyhow::Result<()> {
+    let predicate =
+        parquet_lens_core::parse_predicate(&expr).map_err(|e| anyhow::anyhow!("{e}"))?;
     let path = std::path::Path::new(&input_path);
-    let result = parquet_lens_core::filter_count(path, &predicate).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let result =
+        parquet_lens_core::filter_count(path, &predicate).map_err(|e| anyhow::anyhow!("{e}"))?;
     println!("matched_rows:  {}", result.matched_rows);
     println!("scanned_rows:  {}", result.scanned_rows);
     println!("skipped_rgs:   {}/{}", result.skipped_rgs, result.total_rgs);
     if let Some(out_path) = output {
-        let batches = parquet_lens_core::filter_rows(path, &predicate, limit).map_err(|e| anyhow::anyhow!("{e}"))?;
+        let batches = parquet_lens_core::filter_rows(path, &predicate, limit)
+            .map_err(|e| anyhow::anyhow!("{e}"))?;
         if batches.is_empty() {
             println!("no matching rows — CSV not written");
             return Ok(());
         }
         let mut file = std::fs::File::create(&out_path)?;
         let schema = batches[0].schema();
-        let mut writer = arrow::csv::WriterBuilder::new().with_header(true).build(&mut file);
+        let mut writer = arrow::csv::WriterBuilder::new()
+            .with_header(true)
+            .build(&mut file);
         for batch in &batches {
             writer.write(batch).map_err(|e| anyhow::anyhow!("{e}"))?;
         }
@@ -361,26 +428,54 @@ fn run_schema(input_path: String, json: bool) -> anyhow::Result<()> {
     if json {
         println!("{}", serde_json::to_string_pretty(&schema)?);
     } else {
-        println!("{:<40} {:<12} {:<20} {}", "name", "type", "logical_type", "repetition");
+        println!(
+            "{:<40} {:<12} {:<20} repetition",
+            "name", "type", "logical_type"
+        );
         println!("{}", "-".repeat(80));
         for col in &schema {
-            println!("{:<40} {:<12} {:<20} {}", col.name, col.physical_type, col.logical_type.as_deref().unwrap_or("-"), col.repetition);
+            println!(
+                "{:<40} {:<12} {:<20} {}",
+                col.name,
+                col.physical_type,
+                col.logical_type.as_deref().unwrap_or("-"),
+                col.repetition
+            );
         }
     }
     Ok(())
 }
 
-fn run_validate(input_path: String, sample_pct: Option<f64>, sample_seed: Option<u64>, config: &Config) -> anyhow::Result<()> {
+fn run_validate(
+    input_path: String,
+    sample_pct: Option<f64>,
+    sample_seed: Option<u64>,
+    _config: &Config,
+) -> anyhow::Result<()> {
     let paths = rp(&input_path)?;
     if paths.is_empty() {
         eprintln!("file not found: {input_path}");
         std::process::exit(2);
     }
-    let (dataset, _, meta) = load_file_stats(&paths).map_err(|e| { eprintln!("load error: {e}"); std::process::exit(2); anyhow::anyhow!("{e}") })?;
+    #[allow(unreachable_code)]
+    let (dataset, _, meta) = load_file_stats(&paths).map_err(|e| {
+        eprintln!("load error: {e}");
+        std::process::exit(2);
+        anyhow::anyhow!("{e}")
+    })?;
     let total_rows = dataset.total_rows;
     let col_stats = if let Some(pct) = sample_pct {
-        let cfg = SampleConfig { percentage: pct, no_extrapolation: false, seed: sample_seed };
-        sample_row_groups(&paths[0].path, &cfg, 20).map(|sp| sp.agg_stats).unwrap_or_else(|_| { let cs = read_column_stats(&meta); aggregate_column_stats(&cs, total_rows) })
+        let cfg = SampleConfig {
+            percentage: pct,
+            no_extrapolation: false,
+            seed: sample_seed,
+        };
+        sample_row_groups(&paths[0].path, &cfg, 20)
+            .map(|sp| sp.agg_stats)
+            .unwrap_or_else(|_| {
+                let cs = read_column_stats(&meta);
+                aggregate_column_stats(&cs, total_rows)
+            })
     } else {
         let cs = read_column_stats(&meta);
         aggregate_column_stats(&cs, total_rows)
@@ -390,17 +485,42 @@ fn run_validate(input_path: String, sample_pct: Option<f64>, sample_seed: Option
     let quality_scores = compute_quality_scores(&col_stats, &encodings, total_rows);
     let total_cells = total_rows * dataset.combined_schema.len() as i64;
     let total_nulls: u64 = col_stats.iter().map(|s| s.total_null_count).sum();
-    let quality = summarize_quality(quality_scores.clone(), total_cells, total_nulls, dataset.schema_inconsistencies.is_empty(), &col_stats);
+    let quality = summarize_quality(
+        quality_scores.clone(),
+        total_cells,
+        total_nulls,
+        dataset.schema_inconsistencies.is_empty(),
+        &col_stats,
+    );
     let suggestions = detect_repair_suggestions(&row_groups, &col_stats, &encodings);
-    let schema: Vec<parquet_lens_core::ColumnSchema> = dataset.combined_schema.iter().map(|c| parquet_lens_core::ColumnSchema { name: c.name.clone(), physical_type: c.physical_type.clone(), logical_type: c.logical_type.clone(), repetition: c.repetition.clone(), max_def_level: c.max_def_level, max_rep_level: c.max_rep_level }).collect();
-    let (_baseline, regressions) = load_baseline_regressions(&paths[0].path, &col_stats, &quality_scores, &schema);
-    let has_issues = !suggestions.is_empty() || !regressions.is_empty() || quality.overall_score < 80;
+    let schema: Vec<parquet_lens_core::ColumnSchema> = dataset
+        .combined_schema
+        .iter()
+        .map(|c| parquet_lens_core::ColumnSchema {
+            name: c.name.clone(),
+            physical_type: c.physical_type.clone(),
+            logical_type: c.logical_type.clone(),
+            repetition: c.repetition.clone(),
+            max_def_level: c.max_def_level,
+            max_rep_level: c.max_rep_level,
+        })
+        .collect();
+    let (_baseline, regressions) =
+        load_baseline_regressions(&paths[0].path, &col_stats, &quality_scores, &schema);
+    let has_issues =
+        !suggestions.is_empty() || !regressions.is_empty() || quality.overall_score < 80;
     println!("overall_quality: {}/100", quality.overall_score);
     println!("repair_suggestions: {}", suggestions.len());
-    for s in &suggestions { println!("  [{}] {}", s.severity, s.issue); }
+    for s in &suggestions {
+        println!("  [{}] {}", s.severity, s.issue);
+    }
     println!("regressions: {}", regressions.len());
-    for r in &regressions { println!("  [{}] {} — {}", r.kind, r.column, r.detail); }
-    if has_issues { std::process::exit(1); }
+    for r in &regressions {
+        println!("  [{}] {} — {}", r.kind, r.column, r.detail);
+    }
+    if has_issues {
+        std::process::exit(1);
+    }
     Ok(())
 }
 
@@ -431,13 +551,11 @@ fn run_check(input_path: String, format: &str, fail_on_regression: bool) -> anyh
         load_baseline_regressions(&paths[0].path, &agg_stats, &quality_scores, &schema);
     if format == "json" {
         println!("{}", serde_json::to_string(&regressions)?);
+    } else if regressions.is_empty() {
+        eprintln!("check: no regressions detected");
     } else {
-        if regressions.is_empty() {
-            eprintln!("check: no regressions detected");
-        } else {
-            for r in &regressions {
-                eprintln!("regression: {} — {}", r.column, r.detail);
-            }
+        for r in &regressions {
+            eprintln!("regression: {} — {}", r.column, r.detail);
         }
     }
     if fail_on_regression && !regressions.is_empty() {
@@ -446,6 +564,7 @@ fn run_check(input_path: String, format: &str, fail_on_regression: bool) -> anyh
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn run_tui(
     input_path: String,
     config: Config,
@@ -532,12 +651,22 @@ fn run_tui(
                 if let Ok(reader) = pb.with_batch_size(max_preview).build() {
                     let mut rows = Vec::new();
                     for batch_result in reader {
-                        if rows.len() >= max_preview { break; }
+                        if rows.len() >= max_preview {
+                            break;
+                        }
                         if let Ok(batch) = batch_result {
                             for row_idx in 0..batch.num_rows() {
-                                if rows.len() >= max_preview { break; }
+                                if rows.len() >= max_preview {
+                                    break;
+                                }
                                 let row: Vec<String> = (0..batch.num_columns())
-                                    .map(|c| arrow::util::display::array_value_to_string(batch.column(c), row_idx).unwrap_or_default())
+                                    .map(|c| {
+                                        arrow::util::display::array_value_to_string(
+                                            batch.column(c),
+                                            row_idx,
+                                        )
+                                        .unwrap_or_default()
+                                    })
                                     .collect();
                                 rows.push(row);
                             }
@@ -559,9 +688,11 @@ fn run_tui(
         .combined_schema
         .iter()
         .filter(|c| {
-            let logical_match = c.logical_type.as_deref().map(|t| {
-                t.contains("Timestamp") || t.contains("Date") || t.contains("Time")
-            }).unwrap_or(false);
+            let logical_match = c
+                .logical_type
+                .as_deref()
+                .map(|t| t.contains("Timestamp") || t.contains("Date") || t.contains("Time"))
+                .unwrap_or(false);
             // fallback: INT96 with no logical type = legacy Spark timestamp
             let int96_fallback = c.physical_type == "INT96" && c.logical_type.is_none();
             logical_match || int96_fallback
@@ -627,7 +758,10 @@ fn run_tui(
         for r in &app.baseline_regressions {
             eprintln!("regression: {} — {}", r.column, r.detail);
         }
-        anyhow::bail!("{} regression(s) detected (--fail-on-regression)", app.baseline_regressions.len());
+        anyhow::bail!(
+            "{} regression(s) detected (--fail-on-regression)",
+            app.baseline_regressions.len()
+        );
     }
 
     // pre-compute null patterns
@@ -659,62 +793,67 @@ fn run_tui(
     }
 
     // --watch: local filesystem watcher
-    let _watcher_guard: Option<notify::RecommendedWatcher> = if watch && !is_s3_uri(&p0_str) && !is_gcs_uri(&p0_str) {
-        use notify::{Watcher, RecursiveMode, Config as NotifyConfig};
-        let (wtx, wrx) = std::sync::mpsc::channel::<()>();
-        let mut watcher = notify::RecommendedWatcher::new(
-            move |res: Result<notify::Event, notify::Error>| {
-                if let Ok(ev) = res {
-                    if ev.kind.is_modify() || ev.kind.is_create() {
-                        let _ = wtx.send(());
+    let _watcher_guard: Option<notify::RecommendedWatcher> =
+        if watch && !is_s3_uri(&p0_str) && !is_gcs_uri(&p0_str) {
+            use notify::{Config as NotifyConfig, RecursiveMode, Watcher};
+            let (wtx, wrx) = std::sync::mpsc::channel::<()>();
+            let mut watcher = notify::RecommendedWatcher::new(
+                move |res: Result<notify::Event, notify::Error>| {
+                    if let Ok(ev) = res {
+                        if ev.kind.is_modify() || ev.kind.is_create() {
+                            let _ = wtx.send(());
+                        }
+                    }
+                },
+                NotifyConfig::default(),
+            )
+            .map_err(|e| anyhow::anyhow!("watch init failed: {e}"))?;
+            let watch_path = std::path::Path::new(&input_path);
+            let watch_target = if watch_path.is_file() {
+                watch_path.parent().unwrap_or(watch_path)
+            } else {
+                watch_path
+            };
+            watcher
+                .watch(watch_target, RecursiveMode::NonRecursive)
+                .map_err(|e| anyhow::anyhow!("watch failed: {e}"))?;
+            app.watch_rx = Some(wrx);
+            Some(watcher)
+        } else if watch && (is_s3_uri(&p0_str) || is_gcs_uri(&p0_str)) {
+            let (wtx, wrx) = std::sync::mpsc::channel::<()>();
+            let uri = p0_str.to_string();
+            let s3_endpoint = app.config.s3.endpoint_url.clone();
+            let cloud_interval = watch_interval.unwrap_or(30);
+            let is_s3 = is_s3_uri(&uri);
+            tokio::spawn(async move {
+                let interval = tokio::time::Duration::from_secs(cloud_interval);
+                let mut prev_rows: Option<i64> = None;
+                loop {
+                    tokio::time::sleep(interval).await;
+                    let cur_rows = if is_s3 {
+                        read_s3_parquet_metadata(&uri, s3_endpoint.as_deref())
+                            .await
+                            .ok()
+                            .map(|m| m.file_metadata().num_rows())
+                    } else {
+                        read_gcs_parquet_metadata(&uri)
+                            .await
+                            .ok()
+                            .map(|m| m.file_metadata().num_rows())
+                    };
+                    if let Some(rows) = cur_rows {
+                        if prev_rows.map(|p| p != rows).unwrap_or(false) {
+                            let _ = wtx.send(());
+                        }
+                        prev_rows = Some(rows);
                     }
                 }
-            },
-            NotifyConfig::default(),
-        ).map_err(|e| anyhow::anyhow!("watch init failed: {e}"))?;
-        let watch_path = std::path::Path::new(&input_path);
-        let watch_target = if watch_path.is_file() {
-            watch_path.parent().unwrap_or(watch_path)
+            });
+            app.watch_rx = Some(wrx);
+            None
         } else {
-            watch_path
+            None
         };
-        watcher.watch(watch_target, RecursiveMode::NonRecursive)
-            .map_err(|e| anyhow::anyhow!("watch failed: {e}"))?;
-        app.watch_rx = Some(wrx);
-        Some(watcher)
-    } else if watch && (is_s3_uri(&p0_str) || is_gcs_uri(&p0_str)) {
-        let (wtx, wrx) = std::sync::mpsc::channel::<()>();
-        let uri = p0_str.to_string();
-        let s3_endpoint = app.config.s3.endpoint_url.clone();
-        let cloud_interval = watch_interval.unwrap_or(30);
-        let is_s3 = is_s3_uri(&uri);
-        tokio::spawn(async move {
-            let interval = tokio::time::Duration::from_secs(cloud_interval);
-            let mut prev_rows: Option<i64> = None;
-            loop {
-                tokio::time::sleep(interval).await;
-                let cur_rows = if is_s3 {
-                    read_s3_parquet_metadata(&uri, s3_endpoint.as_deref()).await
-                        .ok()
-                        .map(|m| m.file_metadata().num_rows())
-                } else {
-                    read_gcs_parquet_metadata(&uri).await
-                        .ok()
-                        .map(|m| m.file_metadata().num_rows())
-                };
-                if let Some(rows) = cur_rows {
-                    if prev_rows.map(|p| p != rows).unwrap_or(false) {
-                        let _ = wtx.send(());
-                    }
-                    prev_rows = Some(rows);
-                }
-            }
-        });
-        app.watch_rx = Some(wrx);
-        None
-    } else {
-        None
-    };
 
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -725,10 +864,7 @@ fn run_tui(
     // SIGTERM handler: restore terminal before process exits to prevent corruption
     ctrlc::set_handler(move || {
         let _ = crossterm::terminal::disable_raw_mode();
-        let _ = crossterm::execute!(
-            std::io::stdout(),
-            crossterm::terminal::LeaveAlternateScreen
-        );
+        let _ = crossterm::execute!(std::io::stdout(), crossterm::terminal::LeaveAlternateScreen);
         std::process::exit(0);
     })
     .ok();
@@ -752,15 +888,25 @@ fn run_tui(
                         app.agg_stats = aggregate_column_stats(&cs, tr);
                         app.encoding_analysis = analyze_encodings(&mt);
                         app.compression_analysis = analyze_compression(&mt);
-                        app.quality_scores = compute_quality_scores(&app.agg_stats, &app.encoding_analysis, tr);
-                        app.repair_suggestions = detect_repair_suggestions(&app.row_groups, &app.agg_stats, &app.encoding_analysis);
+                        app.quality_scores =
+                            compute_quality_scores(&app.agg_stats, &app.encoding_analysis, tr);
+                        app.repair_suggestions = detect_repair_suggestions(
+                            &app.row_groups,
+                            &app.agg_stats,
+                            &app.encoding_analysis,
+                        );
                         app.rg_size_recommendation = recommend_row_group_size(&app.row_groups);
                         app.null_patterns = analyze_null_patterns(&app.agg_stats);
-                        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+                        let now = std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .map(|d| d.as_secs())
+                            .unwrap_or(0);
                         let schema_changed = false; // track across reloads in future
                         let entry = format!("[{now}] rows={tr} schema_changed={schema_changed}");
                         app.watch_log.push(entry);
-                        if app.watch_log.len() > 20 { app.watch_log.remove(0); }
+                        if app.watch_log.len() > 20 {
+                            app.watch_log.remove(0);
+                        }
                         app.status_msg = "Reloaded (file changed) — q:quit ?:help".into();
                     }
                 }
@@ -781,13 +927,24 @@ fn run_tui(
             let path = std::path::PathBuf::from(&app.input_path);
             let bins = app.config.profiling.histogram_bins;
             let timeout_secs = app.config.profiling.full_scan_timeout_secs;
-            let (tx, rx) = std::sync::mpsc::channel::<(u64, Vec<parquet_lens_core::ColumnProfileResult>)>();
+            let (tx, rx) =
+                std::sync::mpsc::channel::<(u64, Vec<parquet_lens_core::ColumnProfileResult>)>();
             app.progress_rx = Some(rx);
             tokio::task::spawn_blocking(move || {
-                let result = parquet_lens_core::profile_columns_with_timeout(&path, None, 65536, bins, timeout_secs);
+                let result = parquet_lens_core::profile_columns_with_timeout(
+                    &path,
+                    None,
+                    65536,
+                    bins,
+                    timeout_secs,
+                );
                 match result {
-                    Ok(results) => { let _ = tx.send((total_rows, results)); }
-                    Err(_) => { let _ = tx.send((total_rows, Vec::new())); }
+                    Ok(results) => {
+                        let _ = tx.send((total_rows, results));
+                    }
+                    Err(_) => {
+                        let _ = tx.send((total_rows, Vec::new()));
+                    }
                 }
             });
         }
@@ -819,7 +976,8 @@ fn run_tui(
         if app.pending_duplicate_scan {
             app.pending_duplicate_scan = false;
             let path = std::path::PathBuf::from(&app.input_path);
-            let (tx, rx) = std::sync::mpsc::channel::<Result<parquet_lens_core::DuplicateReport, String>>();
+            let (tx, rx) =
+                std::sync::mpsc::channel::<Result<parquet_lens_core::DuplicateReport, String>>();
             app.duplicate_rx = Some(rx);
             tokio::task::spawn_blocking(move || {
                 let res = detect_duplicates(&path, false).map_err(|e| e.to_string());
@@ -910,8 +1068,10 @@ fn run_compare(path1: String, path2: String, config: Config) -> anyhow::Result<(
     let dataset2 = read_metadata_parallel(&paths2).map_err(|e| anyhow::anyhow!("{e}"))?;
     let p1_str = paths1[0].path.to_string_lossy().to_string();
     let (file_info, meta) = tokio::task::block_in_place(|| {
-        tokio::runtime::Handle::current().block_on(parquet_lens_core::open_parquet_auto(&p1_str, None))
-    }).map_err(|e| anyhow::anyhow!("{e}"))?;
+        tokio::runtime::Handle::current()
+            .block_on(parquet_lens_core::open_parquet_auto(&p1_str, None))
+    })
+    .map_err(|e| anyhow::anyhow!("{e}"))?;
     let row_groups = profile_row_groups(&meta);
     let col_stats = read_column_stats(&meta);
     let total_rows = file_info.row_count;
@@ -919,8 +1079,10 @@ fn run_compare(path1: String, path2: String, config: Config) -> anyhow::Result<(
     let encoding_analysis = analyze_encodings(&meta);
     let p2_str = paths2[0].path.to_string_lossy().to_string();
     let (_, meta2) = tokio::task::block_in_place(|| {
-        tokio::runtime::Handle::current().block_on(parquet_lens_core::open_parquet_auto(&p2_str, None))
-    }).map_err(|e| anyhow::anyhow!("{e}"))?;
+        tokio::runtime::Handle::current()
+            .block_on(parquet_lens_core::open_parquet_auto(&p2_str, None))
+    })
+    .map_err(|e| anyhow::anyhow!("{e}"))?;
     let col_stats2 = read_column_stats(&meta2);
     let agg_stats2 = aggregate_column_stats(&col_stats2, dataset2.total_rows);
     let comparison = compare_datasets(&dataset1, &dataset2, &agg_stats, &agg_stats2);
@@ -963,6 +1125,7 @@ fn run_compare(path1: String, path2: String, config: Config) -> anyhow::Result<(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn run_summary(
     input_path: String,
     save: bool,
@@ -982,7 +1145,11 @@ fn run_summary(
     let (dataset, _, meta) = load_file_stats(&paths)?;
     let total_rows = dataset.total_rows;
     let col_stats = if let Some(pct) = sample_pct {
-        let cfg = SampleConfig { percentage: pct, no_extrapolation: false, seed: sample_seed };
+        let cfg = SampleConfig {
+            percentage: pct,
+            no_extrapolation: false,
+            seed: sample_seed,
+        };
         match sample_row_groups(&paths[0].path, &cfg, 20) {
             Ok(sp) => sp.agg_stats,
             Err(e) => {
@@ -1001,9 +1168,20 @@ fn run_summary(
     let total_cells = total_rows * dataset.combined_schema.len() as i64;
     let total_nulls: u64 = agg_stats.iter().map(|s| s.total_null_count).sum();
     let quality_scores = if let Some(ref cols) = columns {
-        quality_scores.into_iter().filter(|s| cols.iter().any(|c| c == &s.column_name)).collect()
-    } else { quality_scores };
-    let quality = summarize_quality(quality_scores, total_cells, total_nulls, dataset.schema_inconsistencies.is_empty(), &agg_stats);
+        quality_scores
+            .into_iter()
+            .filter(|s| cols.iter().any(|c| c == &s.column_name))
+            .collect()
+    } else {
+        quality_scores
+    };
+    let quality = summarize_quality(
+        quality_scores,
+        total_cells,
+        total_nulls,
+        dataset.schema_inconsistencies.is_empty(),
+        &agg_stats,
+    );
     if json_out {
         println!("{}", serde_json::to_string(&quality)?);
         return Ok(());
@@ -1014,56 +1192,49 @@ fn run_summary(
         } else {
             ("\x1b[1m", "\x1b[0m", "\x1b[32m", "\x1b[33m", "\x1b[31m")
         };
-        macro_rules! BOLD { () => { bold } }
-        macro_rules! RESET { () => { reset } }
-        macro_rules! GREEN { () => { green } }
-        macro_rules! YELLOW { () => { yellow } }
-        macro_rules! RED { () => { red } }
-        let _ = (BOLD!(), RESET!(), GREEN!(), YELLOW!(), RED!()); // suppress unused
-        let (BOLD, RESET, GREEN, YELLOW, RED) = (bold, reset, green, yellow, red);
-        println!("{}Files:{}           {}", BOLD, RESET, dataset.file_count);
-        println!("{}Rows:{}            {}", BOLD, RESET, dataset.total_rows);
+        println!("{}Files:{}           {}", bold, reset, dataset.file_count);
+        println!("{}Rows:{}            {}", bold, reset, dataset.total_rows);
         println!(
             "{}Size:{}            {} bytes",
-            BOLD, RESET, dataset.total_bytes
+            bold, reset, dataset.total_bytes
         );
         println!(
             "{}Columns:{}         {}",
-            BOLD,
-            RESET,
+            bold,
+            reset,
             dataset.combined_schema.len()
         );
         let qcolor = if quality.overall_score >= 80 {
-            GREEN
+            green
         } else if quality.overall_score >= 50 {
-            YELLOW
+            yellow
         } else {
-            RED
+            red
         };
         println!(
             "{}Quality:{}         {}{}/100{}",
-            BOLD, RESET, qcolor, quality.overall_score, RESET
+            bold, reset, qcolor, quality.overall_score, reset
         );
         println!(
             "{}Null cells:{}      {}{:.2}%{}",
-            BOLD,
-            RESET,
+            bold,
+            reset,
             if quality.total_null_cell_pct > 10.0 {
-                RED
+                red
             } else {
-                GREEN
+                green
             },
             quality.total_null_cell_pct,
-            RESET
+            reset
         );
         if !quality.worst_columns.is_empty() {
             println!(
                 "{}Worst cols:{}      {}{}{}",
-                BOLD,
-                RESET,
-                RED,
+                bold,
+                reset,
+                red,
                 quality.worst_columns.join(", "),
-                RESET
+                reset
             );
         }
     } else {
@@ -1080,6 +1251,7 @@ fn run_summary(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn run_export(
     input_path: String,
     format: String,
@@ -1097,7 +1269,11 @@ fn run_export(
     let (dataset, _, meta) = load_file_stats(&paths)?;
     let row_groups = profile_row_groups(&meta);
     let mut agg_stats = if let Some(pct) = sample_pct {
-        let cfg = SampleConfig { percentage: pct, no_extrapolation: false, seed: sample_seed };
+        let cfg = SampleConfig {
+            percentage: pct,
+            no_extrapolation: false,
+            seed: sample_seed,
+        };
         match sample_row_groups(&paths[0].path, &cfg, 20) {
             Ok(sp) => sp.agg_stats,
             Err(e) => {
@@ -1154,8 +1330,10 @@ fn run_export(
     }
     let (_, baseline_regressions) =
         load_baseline_regressions(&paths[0].path, &agg_stats, &quality_scores, &schema);
-    let timeseries_profiles = parquet_lens_core::profile_timeseries(&paths[0].path, &[]).unwrap_or_default();
-    let nested_profiles = parquet_lens_core::profile_nested_columns(&paths[0].path).unwrap_or_default();
+    let timeseries_profiles =
+        parquet_lens_core::profile_timeseries(&paths[0].path, &[]).unwrap_or_default();
+    let nested_profiles =
+        parquet_lens_core::profile_nested_columns(&paths[0].path).unwrap_or_default();
     let repair_suggestions = detect_repair_suggestions(&row_groups, &agg_stats, &encodings);
     match format.as_str() {
         "json" => {

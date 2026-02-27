@@ -123,7 +123,8 @@ pub struct App {
     pub sidebar_width: u16, // runtime-adjustable sidebar width, clamped 15..=60
     pub sidebar_visible: bool, // backtick toggle; also auto-hidden when terminal < 80 cols
     pub pending_duplicate_scan: bool,
-    pub duplicate_rx: Option<std::sync::mpsc::Receiver<Result<parquet_lens_core::DuplicateReport, String>>>,
+    pub duplicate_rx:
+        Option<std::sync::mpsc::Receiver<Result<parquet_lens_core::DuplicateReport, String>>>,
 }
 
 impl App {
@@ -194,12 +195,6 @@ impl App {
             .as_ref()
             .map(|d| d.combined_schema.as_slice())
             .unwrap_or(&[])
-    }
-    pub fn column_count(&self) -> usize {
-        self.dataset
-            .as_ref()
-            .map(|d| d.combined_schema.len())
-            .unwrap_or(0)
     }
     pub fn sidebar_down(&mut self) {
         let max = self.filtered_column_indices().len().saturating_sub(1);

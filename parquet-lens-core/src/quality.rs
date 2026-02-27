@@ -175,8 +175,9 @@ fn hash_row(batch: &arrow::record_batch::RecordBatch, row: usize) -> u64 {
                     }
                 }
                 arrow::datatypes::DataType::LargeUtf8 => {
-                    if let Some(arr) =
-                        col.as_any().downcast_ref::<arrow::array::LargeStringArray>()
+                    if let Some(arr) = col
+                        .as_any()
+                        .downcast_ref::<arrow::array::LargeStringArray>()
                     {
                         row_bytes.extend_from_slice(arr.value(row).as_bytes());
                     }
@@ -267,12 +268,51 @@ mod tests_score_column {
         score_column("col", null_pct, distinct, total, false)
     }
 
-    #[test] fn null_0pct() { let s = sc(0.0, None, 100); assert_eq!(s.null_penalty, 0.0); assert_eq!(s.score, 100); }
-    #[test] fn null_5pct() { let s = sc(5.0, None, 100); assert_eq!(s.null_penalty, 0.0); assert_eq!(s.score, 100); }
-    #[test] fn null_50pct() { let s = sc(50.0, None, 100); assert!((s.null_penalty - 90.0).abs() < 0.01); assert_eq!(s.score, 40); }
-    #[test] fn null_100pct() { let s = sc(100.0, None, 100); assert!(s.null_penalty >= 60.0); assert_eq!(s.score, 40); } // capped
-    #[test] fn constant_distinct_0() { let s = sc(0.0, Some(0), 100); assert!(s.is_constant); assert_eq!(s.score, 80); }
-    #[test] fn constant_distinct_1() { let s = sc(0.0, Some(1), 100); assert!(s.is_constant); assert_eq!(s.score, 80); }
-    #[test] fn cardinality_flag() { let s = sc(0.0, Some(100), 100); assert!(s.cardinality_flag); assert_eq!(s.score, 95); }
-    #[test] fn no_cardinality_flag() { let s = sc(0.0, Some(50), 100); assert!(!s.cardinality_flag); }
+    #[test]
+    fn null_0pct() {
+        let s = sc(0.0, None, 100);
+        assert_eq!(s.null_penalty, 0.0);
+        assert_eq!(s.score, 100);
+    }
+    #[test]
+    fn null_5pct() {
+        let s = sc(5.0, None, 100);
+        assert_eq!(s.null_penalty, 0.0);
+        assert_eq!(s.score, 100);
+    }
+    #[test]
+    fn null_50pct() {
+        let s = sc(50.0, None, 100);
+        assert!((s.null_penalty - 90.0).abs() < 0.01);
+        assert_eq!(s.score, 40);
+    }
+    #[test]
+    fn null_100pct() {
+        let s = sc(100.0, None, 100);
+        assert!(s.null_penalty >= 60.0);
+        assert_eq!(s.score, 40);
+    } // capped
+    #[test]
+    fn constant_distinct_0() {
+        let s = sc(0.0, Some(0), 100);
+        assert!(s.is_constant);
+        assert_eq!(s.score, 80);
+    }
+    #[test]
+    fn constant_distinct_1() {
+        let s = sc(0.0, Some(1), 100);
+        assert!(s.is_constant);
+        assert_eq!(s.score, 80);
+    }
+    #[test]
+    fn cardinality_flag() {
+        let s = sc(0.0, Some(100), 100);
+        assert!(s.cardinality_flag);
+        assert_eq!(s.score, 95);
+    }
+    #[test]
+    fn no_cardinality_flag() {
+        let s = sc(0.0, Some(50), 100);
+        assert!(!s.cardinality_flag);
+    }
 }

@@ -89,8 +89,10 @@ pub fn read_metadata_parallel(paths: &[ParquetFilePath]) -> Result<DatasetProfil
                     }
                 }
                 // type mismatches
-                let other_type_map: std::collections::HashMap<&str, &str> =
-                    other_schema.iter().map(|c| (c.name.as_str(), c.physical_type.as_str())).collect();
+                let other_type_map: std::collections::HashMap<&str, &str> = other_schema
+                    .iter()
+                    .map(|c| (c.name.as_str(), c.physical_type.as_str()))
+                    .collect();
                 for col in &combined_schema {
                     if let Some(&other_type) = other_type_map.get(col.name.as_str()) {
                         if other_type != col.physical_type.as_str() {

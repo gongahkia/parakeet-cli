@@ -4,8 +4,8 @@ use arrow::array::{
 };
 use arrow::record_batch::RecordBatch;
 use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
-use parquet::file::metadata::RowGroupMetaData;
 use parquet::file::metadata::ParquetMetaData;
+use parquet::file::metadata::RowGroupMetaData;
 use parquet::file::statistics::Statistics;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
@@ -145,23 +145,35 @@ impl Parser {
             return Ok(Predicate::IsNull(col));
         }
         // NOT IN (...)
-        if self.peek_upper().as_deref() == Some("NOT") {
-            if self.tokens.get(self.pos + 1).map(|s| s.to_uppercase()).as_deref() == Some("IN") {
-                self.consume(); // NOT
-                self.consume(); // IN
-                self.expect("(")?;
-                let mut vals = Vec::new();
-                loop {
-                    vals.push(self.parse_value()?);
-                    match self.peek() {
-                        Some(",") => { self.consume(); }
-                        Some(")") => { self.consume(); break; }
-                        Some(t) => return Err(format!("expected ',' or ')' in NOT IN list, got '{t}'")),
-                        None => return Err("unexpected EOF in NOT IN list".into()),
+        if self.peek_upper().as_deref() == Some("NOT")
+            && self
+                .tokens
+                .get(self.pos + 1)
+                .map(|s| s.to_uppercase())
+                .as_deref()
+                == Some("IN")
+        {
+            self.consume(); // NOT
+            self.consume(); // IN
+            self.expect("(")?;
+            let mut vals = Vec::new();
+            loop {
+                vals.push(self.parse_value()?);
+                match self.peek() {
+                    Some(",") => {
+                        self.consume();
                     }
+                    Some(")") => {
+                        self.consume();
+                        break;
+                    }
+                    Some(t) => {
+                        return Err(format!("expected ',' or ')' in NOT IN list, got '{t}'"))
+                    }
+                    None => return Err("unexpected EOF in NOT IN list".into()),
                 }
-                return Ok(Predicate::Not(Box::new(Predicate::In { col, vals })));
             }
+            return Ok(Predicate::Not(Box::new(Predicate::In { col, vals })));
         }
         // IN (...)
         if self.peek_upper().as_deref() == Some("IN") {
@@ -191,8 +203,16 @@ impl Parser {
             self.expect("AND")?;
             let hi = self.parse_value()?;
             return Ok(Predicate::And(
-                Box::new(Predicate::Comparison { col: col.clone(), op: CmpOp::Ge, val: lo }),
-                Box::new(Predicate::Comparison { col, op: CmpOp::Le, val: hi }),
+                Box::new(Predicate::Comparison {
+                    col: col.clone(),
+                    op: CmpOp::Ge,
+                    val: lo,
+                }),
+                Box::new(Predicate::Comparison {
+                    col,
+                    op: CmpOp::Le,
+                    val: hi,
+                }),
             ));
         }
         // LIKE
@@ -623,7 +643,10 @@ fn build_mask(arr: &ArrayRef, op: &CmpOp, val: &Value, n: usize) -> BooleanArray
             let divisor = 10f64.powi(scale as i32);
             let mut b = BooleanBuilder::with_capacity(n);
             for i in 0..n {
-                if a.is_null(i) { b.append_value(false); continue; }
+                if a.is_null(i) {
+                    b.append_value(false);
+                    continue;
+                }
                 let v = a.value(i) as f64 / divisor;
                 b.append_value(cmp_f64(v, op, *fv));
             }
@@ -636,7 +659,10 @@ fn build_mask(arr: &ArrayRef, op: &CmpOp, val: &Value, n: usize) -> BooleanArray
         if let Value::Int(iv) = val {
             let mut b = BooleanBuilder::with_capacity(n);
             for i in 0..n {
-                if a.is_null(i) { b.append_value(false); continue; }
+                if a.is_null(i) {
+                    b.append_value(false);
+                    continue;
+                }
                 b.append_value(cmp_i64(a.value(i) as i64, op, *iv));
             }
             return b.finish();
@@ -648,7 +674,10 @@ fn build_mask(arr: &ArrayRef, op: &CmpOp, val: &Value, n: usize) -> BooleanArray
         if let Value::Int(iv) = val {
             let mut b = BooleanBuilder::with_capacity(n);
             for i in 0..n {
-                if a.is_null(i) { b.append_value(false); continue; }
+                if a.is_null(i) {
+                    b.append_value(false);
+                    continue;
+                }
                 b.append_value(cmp_i64(a.value(i), op, *iv));
             }
             return b.finish();
@@ -822,8 +851,8 @@ pub fn filter_count(path: &Path, predicate: &Predicate) -> Result<FilterResult, 
     let file = File::open(path).map_err(|e| e.to_string())?;
     let builder = ParquetRecordBatchReaderBuilder::try_new(file).map_err(|e| e.to_string())?;
     let meta: std::sync::Arc<ParquetMetaData> = builder.metadata().clone(); // single open
-    // bounds check: verify all referenced columns exist in schema
-    // use path_in_schema for nested dot-notation path matching
+                                                                            // bounds check: verify all referenced columns exist in schema
+                                                                            // use path_in_schema for nested dot-notation path matching
     let schema = meta.file_metadata().schema_descr();
     let schema_paths: Vec<String> = (0..schema.num_columns())
         .map(|i| schema.column(i).path().string())
@@ -876,12 +905,23 @@ pub fn filter_count(path: &Path, predicate: &Predicate) -> Result<FilterResult, 
             matched_rows += mask.true_count() as u64;
             // collect up to 10 sample rows from first matching batch
             if sample_headers.is_empty() && mask.true_count() > 0 {
-                sample_headers = batch.schema().fields().iter().map(|f| f.name().clone()).collect();
+                sample_headers = batch
+                    .schema()
+                    .fields()
+                    .iter()
+                    .map(|f| f.name().clone())
+                    .collect();
                 for row in 0..batch.num_rows() {
                     if mask.value(row) {
-                        let vals: Vec<String> = batch.columns().iter().map(|col| col_val_str(col, row)).collect();
+                        let vals: Vec<String> = batch
+                            .columns()
+                            .iter()
+                            .map(|col| col_val_str(col, row))
+                            .collect();
                         sample_rows.push(vals);
-                        if sample_rows.len() >= 10 { break; }
+                        if sample_rows.len() >= 10 {
+                            break;
+                        }
                     }
                 }
             }
@@ -899,7 +939,11 @@ pub fn filter_count(path: &Path, predicate: &Predicate) -> Result<FilterResult, 
 
 /// Like filter_count but returns matching rows as RecordBatches, up to `limit` total rows.
 /// Used by the filter subcommand for CSV export.
-pub fn filter_rows(path: &Path, predicate: &Predicate, limit: Option<usize>) -> Result<Vec<RecordBatch>, String> {
+pub fn filter_rows(
+    path: &Path,
+    predicate: &Predicate,
+    limit: Option<usize>,
+) -> Result<Vec<RecordBatch>, String> {
     let file = File::open(path).map_err(|e| e.to_string())?;
     let builder = ParquetRecordBatchReaderBuilder::try_new(file).map_err(|e| e.to_string())?;
     let meta = builder.metadata().clone();
@@ -916,21 +960,37 @@ pub fn filter_rows(path: &Path, predicate: &Predicate, limit: Option<usize>) -> 
         return Ok(out);
     }
     let selection = parquet::arrow::arrow_reader::RowSelection::from(
-        (0..total_rgs).map(|i| {
-            let count = meta.row_group(i).num_rows() as usize;
-            if rgs_to_scan.contains(&i) { parquet::arrow::arrow_reader::RowSelector::select(count) }
-            else { parquet::arrow::arrow_reader::RowSelector::skip(count) }
-        }).collect::<Vec<_>>(),
+        (0..total_rgs)
+            .map(|i| {
+                let count = meta.row_group(i).num_rows() as usize;
+                if rgs_to_scan.contains(&i) {
+                    parquet::arrow::arrow_reader::RowSelector::select(count)
+                } else {
+                    parquet::arrow::arrow_reader::RowSelector::skip(count)
+                }
+            })
+            .collect::<Vec<_>>(),
     );
-    let reader = builder.with_row_selection(selection).build().map_err(|e| e.to_string())?;
+    let reader = builder
+        .with_row_selection(selection)
+        .build()
+        .map_err(|e| e.to_string())?;
     for batch_result in reader {
         let batch = batch_result.map_err(|e| e.to_string())?;
         let mask = eval_predicate_batch(predicate, &batch);
-        if mask.true_count() == 0 { continue; }
-        let indices: Vec<u64> = (0..batch.num_rows()).filter(|&r| mask.value(r)).map(|r| r as u64).collect();
+        if mask.true_count() == 0 {
+            continue;
+        }
+        let indices: Vec<u64> = (0..batch.num_rows())
+            .filter(|&r| mask.value(r))
+            .map(|r| r as u64)
+            .collect();
         let idx_arr = arrow::array::UInt64Array::from(indices);
-        let filtered = arrow::compute::take_record_batch(&batch, &idx_arr).map_err(|e| e.to_string())?;
-        let remaining = limit.map(|lim| lim.saturating_sub(total_collected)).unwrap_or(usize::MAX);
+        let filtered =
+            arrow::compute::take_record_batch(&batch, &idx_arr).map_err(|e| e.to_string())?;
+        let remaining = limit
+            .map(|lim| lim.saturating_sub(total_collected))
+            .unwrap_or(usize::MAX);
         if filtered.num_rows() <= remaining {
             total_collected += filtered.num_rows();
             out.push(filtered);
@@ -939,7 +999,9 @@ pub fn filter_rows(path: &Path, predicate: &Predicate, limit: Option<usize>) -> 
             total_collected += sliced.num_rows();
             out.push(sliced);
         }
-        if limit.is_some_and(|lim| total_collected >= lim) { break; }
+        if limit.is_some_and(|lim| total_collected >= lim) {
+            break;
+        }
     }
     Ok(out)
 }
@@ -953,40 +1015,87 @@ mod tests_can_skip_rg {
     use std::sync::Arc;
 
     fn make_rg(min: i32, max: i32) -> RowGroupMetaData {
-        let field = Arc::new(SchemaType::primitive_type_builder("age", parquet::basic::Type::INT32).build().unwrap());
-        let schema = Arc::new(SchemaType::group_type_builder("schema").with_fields(vec![field]).build().unwrap());
+        let field = Arc::new(
+            SchemaType::primitive_type_builder("age", parquet::basic::Type::INT32)
+                .build()
+                .unwrap(),
+        );
+        let schema = Arc::new(
+            SchemaType::group_type_builder("schema")
+                .with_fields(vec![field])
+                .build()
+                .unwrap(),
+        );
         let descr = Arc::new(SchemaDescriptor::new(schema));
         let col = ColumnChunkMetaData::builder(descr.column(0).clone())
-            .set_statistics(Statistics::new::<i32>(Some(min), Some(max), None, Some(0), false))
-            .build().unwrap();
-        RowGroupMetaData::builder(descr).set_num_rows(100).set_column_metadata(vec![col]).build().unwrap()
+            .set_statistics(Statistics::new::<i32>(
+                Some(min),
+                Some(max),
+                None,
+                Some(0),
+                false,
+            ))
+            .build()
+            .unwrap();
+        RowGroupMetaData::builder(descr)
+            .set_num_rows(100)
+            .set_column_metadata(vec![col])
+            .build()
+            .unwrap()
     }
 
     fn cmp(col: &str, op: CmpOp, val: i64) -> Predicate {
-        Predicate::Comparison { col: col.into(), op, val: Value::Int(val) }
+        Predicate::Comparison {
+            col: col.into(),
+            op,
+            val: Value::Int(val),
+        }
     }
 
-    #[test] fn not_never_skips() {
+    #[test]
+    fn not_never_skips() {
         let rg = make_rg(10, 20);
-        assert!(!can_skip_row_group(&Predicate::Not(Box::new(cmp("age", CmpOp::Eq, 15))), &rg));
+        assert!(!can_skip_row_group(
+            &Predicate::Not(Box::new(cmp("age", CmpOp::Eq, 15))),
+            &rg
+        ));
     }
-    #[test] fn and_either_false_skips() {
+    #[test]
+    fn and_either_false_skips() {
         // age = 99 (out of range) AND always-false In => skip (left is provably false)
         let rg = make_rg(10, 20);
-        let and = Predicate::And(Box::new(cmp("age", CmpOp::Eq, 99)), Box::new(Predicate::In { col: "age".into(), vals: vec![] }));
+        let and = Predicate::And(
+            Box::new(cmp("age", CmpOp::Eq, 99)),
+            Box::new(Predicate::In {
+                col: "age".into(),
+                vals: vec![],
+            }),
+        );
         assert!(can_skip_row_group(&and, &rg));
     }
-    #[test] fn or_both_false_required() {
+    #[test]
+    fn or_both_false_required() {
         // Or(In, In) — both always return false → skip
         let rg = make_rg(10, 20);
-        let or = Predicate::Or(Box::new(Predicate::In { col: "x".into(), vals: vec![] }), Box::new(Predicate::In { col: "y".into(), vals: vec![] }));
+        let or = Predicate::Or(
+            Box::new(Predicate::In {
+                col: "x".into(),
+                vals: vec![],
+            }),
+            Box::new(Predicate::In {
+                col: "y".into(),
+                vals: vec![],
+            }),
+        );
         assert!(!can_skip_row_group(&or, &rg)); // neither can be skipped alone
     }
-    #[test] fn comparison_out_of_range_skips() {
+    #[test]
+    fn comparison_out_of_range_skips() {
         let rg = make_rg(10, 20);
         assert!(can_skip_row_group(&cmp("age", CmpOp::Eq, 99), &rg)); // 99 > max → skip
     }
-    #[test] fn comparison_in_range_no_skip() {
+    #[test]
+    fn comparison_in_range_no_skip() {
         let rg = make_rg(10, 20);
         assert!(!can_skip_row_group(&cmp("age", CmpOp::Eq, 15), &rg));
     }
@@ -996,39 +1105,132 @@ mod tests_can_skip_rg {
 mod tests_like_match_at {
     use super::*;
 
-    fn lm(s: &str, pat: &str) -> bool { like_match(s, &like_to_regex(pat)) }
+    fn lm(s: &str, pat: &str) -> bool {
+        like_match(s, &like_to_regex(pat))
+    }
 
-    #[test] fn wildcard_start() { assert!(lm("hello", "%llo")); }
-    #[test] fn wildcard_end() { assert!(lm("hello", "hel%")); }
-    #[test] fn wildcard_middle() { assert!(lm("hello world", "hello%world")); }
-    #[test] fn single_char() { assert!(lm("abc", "a_c")); assert!(!lm("ac", "a_c")); }
-    #[test] fn combined_pct_underscore() { assert!(lm("abXcd", "%_cd")); }
-    #[test] fn empty_string_empty_pattern() { assert!(lm("", "")); }
-    #[test] fn empty_string_wildcard() { assert!(lm("", "%")); }
-    #[test] fn no_wildcard_exact() { assert!(lm("hello", "hello")); assert!(!lm("hello", "hell")); }
+    #[test]
+    fn wildcard_start() {
+        assert!(lm("hello", "%llo"));
+    }
+    #[test]
+    fn wildcard_end() {
+        assert!(lm("hello", "hel%"));
+    }
+    #[test]
+    fn wildcard_middle() {
+        assert!(lm("hello world", "hello%world"));
+    }
+    #[test]
+    fn single_char() {
+        assert!(lm("abc", "a_c"));
+        assert!(!lm("ac", "a_c"));
+    }
+    #[test]
+    fn combined_pct_underscore() {
+        assert!(lm("abXcd", "%_cd"));
+    }
+    #[test]
+    fn empty_string_empty_pattern() {
+        assert!(lm("", ""));
+    }
+    #[test]
+    fn empty_string_wildcard() {
+        assert!(lm("", "%"));
+    }
+    #[test]
+    fn no_wildcard_exact() {
+        assert!(lm("hello", "hello"));
+        assert!(!lm("hello", "hell"));
+    }
 }
 
 #[cfg(test)]
 mod tests_parse_predicate {
     use super::*;
 
-    fn p(s: &str) -> Predicate { parse_predicate(s).expect(s) }
+    fn p(s: &str) -> Predicate {
+        parse_predicate(s).expect(s)
+    }
 
-    #[test] fn eq_int() { assert!(matches!(p("age = 30"), Predicate::Comparison { op: CmpOp::Eq, .. })); }
-    #[test] fn ne_int() { assert!(matches!(p("age != 30"), Predicate::Comparison { op: CmpOp::Ne, .. })); }
-    #[test] fn lt_int() { assert!(matches!(p("age < 30"), Predicate::Comparison { op: CmpOp::Lt, .. })); }
-    #[test] fn le_int() { assert!(matches!(p("age <= 30"), Predicate::Comparison { op: CmpOp::Le, .. })); }
-    #[test] fn gt_int() { assert!(matches!(p("age > 30"), Predicate::Comparison { op: CmpOp::Gt, .. })); }
-    #[test] fn ge_int() { assert!(matches!(p("age >= 30"), Predicate::Comparison { op: CmpOp::Ge, .. })); }
-    #[test] fn is_null() { assert!(matches!(p("name IS NULL"), Predicate::IsNull(_))); }
-    #[test] fn is_not_null() { assert!(matches!(p("name IS NOT NULL"), Predicate::IsNotNull(_))); }
-    #[test] fn in_list() { assert!(matches!(p("city IN ('A','B')"), Predicate::In { .. })); }
-    #[test] fn like_pat() { assert!(matches!(p("name LIKE 'foo%'"), Predicate::Like { .. })); }
-    #[test] fn and_combo() { assert!(matches!(p("a = 1 AND b = 2"), Predicate::And(_, _))); }
-    #[test] fn or_combo() { assert!(matches!(p("a = 1 OR b = 2"), Predicate::Or(_, _))); }
-    #[test] fn not_combo() { assert!(matches!(p("NOT a = 1"), Predicate::Not(_))); }
-    #[test] fn malformed_empty() { assert!(parse_predicate("").is_err()); }
-    #[test] fn malformed_dangling() { assert!(parse_predicate("a =").is_err()); }
+    #[test]
+    fn eq_int() {
+        assert!(matches!(
+            p("age = 30"),
+            Predicate::Comparison { op: CmpOp::Eq, .. }
+        ));
+    }
+    #[test]
+    fn ne_int() {
+        assert!(matches!(
+            p("age != 30"),
+            Predicate::Comparison { op: CmpOp::Ne, .. }
+        ));
+    }
+    #[test]
+    fn lt_int() {
+        assert!(matches!(
+            p("age < 30"),
+            Predicate::Comparison { op: CmpOp::Lt, .. }
+        ));
+    }
+    #[test]
+    fn le_int() {
+        assert!(matches!(
+            p("age <= 30"),
+            Predicate::Comparison { op: CmpOp::Le, .. }
+        ));
+    }
+    #[test]
+    fn gt_int() {
+        assert!(matches!(
+            p("age > 30"),
+            Predicate::Comparison { op: CmpOp::Gt, .. }
+        ));
+    }
+    #[test]
+    fn ge_int() {
+        assert!(matches!(
+            p("age >= 30"),
+            Predicate::Comparison { op: CmpOp::Ge, .. }
+        ));
+    }
+    #[test]
+    fn is_null() {
+        assert!(matches!(p("name IS NULL"), Predicate::IsNull(_)));
+    }
+    #[test]
+    fn is_not_null() {
+        assert!(matches!(p("name IS NOT NULL"), Predicate::IsNotNull(_)));
+    }
+    #[test]
+    fn in_list() {
+        assert!(matches!(p("city IN ('A','B')"), Predicate::In { .. }));
+    }
+    #[test]
+    fn like_pat() {
+        assert!(matches!(p("name LIKE 'foo%'"), Predicate::Like { .. }));
+    }
+    #[test]
+    fn and_combo() {
+        assert!(matches!(p("a = 1 AND b = 2"), Predicate::And(_, _)));
+    }
+    #[test]
+    fn or_combo() {
+        assert!(matches!(p("a = 1 OR b = 2"), Predicate::Or(_, _)));
+    }
+    #[test]
+    fn not_combo() {
+        assert!(matches!(p("NOT a = 1"), Predicate::Not(_)));
+    }
+    #[test]
+    fn malformed_empty() {
+        assert!(parse_predicate("").is_err());
+    }
+    #[test]
+    fn malformed_dangling() {
+        assert!(parse_predicate("a =").is_err());
+    }
 }
 
 fn col_val_str(col: &dyn arrow::array::Array, row: usize) -> String {
@@ -1036,12 +1238,36 @@ fn col_val_str(col: &dyn arrow::array::Array, row: usize) -> String {
         return "NULL".into();
     }
     match col.data_type() {
-        arrow::datatypes::DataType::Int32 => col.as_any().downcast_ref::<Int32Array>().map(|a| a.value(row).to_string()).unwrap_or_default(),
-        arrow::datatypes::DataType::Int64 => col.as_any().downcast_ref::<Int64Array>().map(|a| a.value(row).to_string()).unwrap_or_default(),
-        arrow::datatypes::DataType::Float32 => col.as_any().downcast_ref::<Float32Array>().map(|a| a.value(row).to_string()).unwrap_or_default(),
-        arrow::datatypes::DataType::Float64 => col.as_any().downcast_ref::<Float64Array>().map(|a| a.value(row).to_string()).unwrap_or_default(),
-        arrow::datatypes::DataType::Utf8 => col.as_any().downcast_ref::<StringArray>().map(|a| a.value(row).to_string()).unwrap_or_default(),
-        arrow::datatypes::DataType::Boolean => col.as_any().downcast_ref::<BooleanArray>().map(|a| a.value(row).to_string()).unwrap_or_default(),
+        arrow::datatypes::DataType::Int32 => col
+            .as_any()
+            .downcast_ref::<Int32Array>()
+            .map(|a| a.value(row).to_string())
+            .unwrap_or_default(),
+        arrow::datatypes::DataType::Int64 => col
+            .as_any()
+            .downcast_ref::<Int64Array>()
+            .map(|a| a.value(row).to_string())
+            .unwrap_or_default(),
+        arrow::datatypes::DataType::Float32 => col
+            .as_any()
+            .downcast_ref::<Float32Array>()
+            .map(|a| a.value(row).to_string())
+            .unwrap_or_default(),
+        arrow::datatypes::DataType::Float64 => col
+            .as_any()
+            .downcast_ref::<Float64Array>()
+            .map(|a| a.value(row).to_string())
+            .unwrap_or_default(),
+        arrow::datatypes::DataType::Utf8 => col
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .map(|a| a.value(row).to_string())
+            .unwrap_or_default(),
+        arrow::datatypes::DataType::Boolean => col
+            .as_any()
+            .downcast_ref::<BooleanArray>()
+            .map(|a| a.value(row).to_string())
+            .unwrap_or_default(),
         _ => format!("{:?}", col.data_type()),
     }
 }

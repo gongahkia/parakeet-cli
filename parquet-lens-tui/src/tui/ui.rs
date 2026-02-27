@@ -130,7 +130,11 @@ fn render_sidebar(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
             };
             let name_trunc = truncate(&col.name, name_w);
             ListItem::new(Line::from(vec![
-                Span::raw(format!("{bmark}{icon} {:<width$}", name_trunc, width = name_w)),
+                Span::raw(format!(
+                    "{bmark}{icon} {:<width$}",
+                    name_trunc,
+                    width = name_w
+                )),
                 Span::styled(format!("{:3}%", quality), Style::default().fg(qcolor)),
             ]))
         })
@@ -227,13 +231,22 @@ fn render_duplicates(frame: &mut Frame, app: &App, area: Rect, theme: &Theme) {
 
 fn render_watch_log(frame: &mut Frame, app: &App, area: Rect) {
     let items: Vec<ListItem> = if app.watch_log.is_empty() {
-        vec![ListItem::new("No reload events yet. Watching for file changes...")]
+        vec![ListItem::new(
+            "No reload events yet. Watching for file changes...",
+        )]
     } else {
-        app.watch_log.iter().rev().map(|entry| ListItem::new(entry.as_str())).collect()
+        app.watch_log
+            .iter()
+            .rev()
+            .map(|entry| ListItem::new(entry.as_str()))
+            .collect()
     };
     frame.render_widget(
-        List::new(items)
-            .block(Block::default().borders(Borders::ALL).title("Watch Log (W) — last 20 reloads")),
+        List::new(items).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Watch Log (W) — last 20 reloads"),
+        ),
         area,
     );
 }
@@ -1303,8 +1316,16 @@ fn render_data_preview(frame: &mut Frame, app: &App, area: Rect) {
 }
 
 fn render_filter_overlay(frame: &mut Frame, app: &App, area: Rect) {
-    let has_samples = app.filter_result.as_ref().map(|r| !r.sample_rows.is_empty()).unwrap_or(false);
-    let popup = if has_samples { centered_rect(80, 70, area) } else { centered_rect(60, 30, area) };
+    let has_samples = app
+        .filter_result
+        .as_ref()
+        .map(|r| !r.sample_rows.is_empty())
+        .unwrap_or(false);
+    let popup = if has_samples {
+        centered_rect(80, 70, area)
+    } else {
+        centered_rect(60, 30, area)
+    };
     frame.render_widget(ratatui::widgets::Clear, popup);
     let result_line = if let Some(r) = &app.filter_result {
         format!(
@@ -1328,16 +1349,31 @@ fn render_filter_overlay(frame: &mut Frame, app: &App, area: Rect) {
             chunks[0],
         );
         if let Some(r) = &app.filter_result {
-            let header_cells: Vec<Cell> = r.sample_headers.iter().map(|h| Cell::from(h.as_str())).collect();
-            let header = Row::new(header_cells).style(Style::default().add_modifier(Modifier::BOLD));
-            let rows: Vec<Row> = r.sample_rows.iter().map(|row| {
-                Row::new(row.iter().map(|v| Cell::from(v.as_str())).collect::<Vec<_>>())
-            }).collect();
+            let header_cells: Vec<Cell> = r
+                .sample_headers
+                .iter()
+                .map(|h| Cell::from(h.as_str()))
+                .collect();
+            let header =
+                Row::new(header_cells).style(Style::default().add_modifier(Modifier::BOLD));
+            let rows: Vec<Row> = r
+                .sample_rows
+                .iter()
+                .map(|row| {
+                    Row::new(
+                        row.iter()
+                            .map(|v| Cell::from(v.as_str()))
+                            .collect::<Vec<_>>(),
+                    )
+                })
+                .collect();
             let col_count = r.sample_headers.len().max(1);
             let widths: Vec<Constraint> = (0..col_count).map(|_| Constraint::Min(10)).collect();
             frame.render_widget(
                 Table::new(rows, widths).header(header).block(
-                    Block::default().borders(Borders::ALL).title("Sample rows (max 10)"),
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .title("Sample rows (max 10)"),
                 ),
                 chunks[1],
             );
@@ -1346,7 +1382,11 @@ fn render_filter_overlay(frame: &mut Frame, app: &App, area: Rect) {
         let content = format!("> {}_\n\n{}", app.filter_input, result_line);
         frame.render_widget(
             Paragraph::new(content)
-                .block(Block::default().borders(Borders::ALL).title("Filter (P) — WHERE expression"))
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .title("Filter (P) — WHERE expression"),
+                )
                 .wrap(Wrap { trim: false }),
             popup,
         );

@@ -1,8 +1,8 @@
 use crate::tui::app::{App, Focus, ProfilingMode, ProgressState, SidebarSort, View};
 use crossterm::event::{KeyCode, KeyEvent};
 use parquet_lens_core::{
-    analyze_null_patterns, export_json, filter_count, load_baseline_regressions,
-    parse_predicate, BaselineProfile, ColumnSchema,
+    analyze_null_patterns, export_json, filter_count, load_baseline_regressions, parse_predicate,
+    BaselineProfile, ColumnSchema,
 };
 use std::path::Path;
 

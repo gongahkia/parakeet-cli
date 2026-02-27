@@ -2,12 +2,17 @@ use arrow::array::{Int32Array, StringArray};
 use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
 use parquet::arrow::ArrowWriter;
-use parquet_lens_core::{aggregate_column_stats, open_parquet_file, read_column_stats, score_column};
+use parquet_lens_core::{
+    aggregate_column_stats, open_parquet_file, read_column_stats, score_column,
+};
 use std::sync::Arc;
 use tempfile::NamedTempFile;
 
 fn write_fixture() -> NamedTempFile {
-    let tmp = tempfile::Builder::new().suffix(".parquet").tempfile().unwrap();
+    let tmp = tempfile::Builder::new()
+        .suffix(".parquet")
+        .tempfile()
+        .unwrap();
     let schema = Arc::new(Schema::new(vec![
         Field::new("id", DataType::Int32, false),
         Field::new("name", DataType::Utf8, true),
