@@ -88,6 +88,26 @@ pub fn identify_engine(created_by: &str) -> EngineInfo {
     }
 }
 
+#[cfg(test)]
+mod tests_identify_engine {
+    use super::*;
+    #[test] fn spark() { let e = identify_engine("Apache Spark 3.4.0"); assert_eq!(e.engine_name, "Apache Spark"); assert!(!e.hints.is_empty()); }
+    #[test] fn spark_lowercase() { let e = identify_engine("spark sql"); assert_eq!(e.engine_name, "Apache Spark"); }
+    #[test] fn pyarrow() { let e = identify_engine("pyarrow 14.0.1"); assert_eq!(e.engine_name, "PyArrow / Apache Arrow"); assert!(!e.hints.is_empty()); }
+    #[test] fn arrow() { let e = identify_engine("arrow 12.0"); assert_eq!(e.engine_name, "PyArrow / Apache Arrow"); }
+    #[test] fn duckdb() { let e = identify_engine("DuckDB 0.10.0"); assert_eq!(e.engine_name, "DuckDB"); assert!(!e.hints.is_empty()); }
+    #[test] fn impala() { let e = identify_engine("impala version 4.0"); assert_eq!(e.engine_name, "Apache Impala"); assert!(!e.hints.is_empty()); }
+    #[test] fn hive() { let e = identify_engine("Apache Hive 3.1.3"); assert_eq!(e.engine_name, "Apache Hive"); assert!(!e.hints.is_empty()); }
+    #[test] fn trino() { let e = identify_engine("Trino 420"); assert_eq!(e.engine_name, "Trino / Presto"); assert!(!e.hints.is_empty()); }
+    #[test] fn presto() { let e = identify_engine("presto-main:0.284"); assert_eq!(e.engine_name, "Trino / Presto"); }
+    #[test] fn flink() { let e = identify_engine("Apache Flink 1.18.0"); assert_eq!(e.engine_name, "Apache Flink"); assert!(!e.hints.is_empty()); }
+    #[test] fn pandas() { let e = identify_engine("pandas 2.1.0"); assert_eq!(e.engine_name, "Pandas (via fastparquet or PyArrow)"); assert!(!e.hints.is_empty()); }
+    #[test] fn parquet_go_dash() { let e = identify_engine("parquet-go v1.0"); assert_eq!(e.engine_name, "parquet-go"); assert!(!e.hints.is_empty()); }
+    #[test] fn parquet_go_underscore() { let e = identify_engine("parquet_go 1.0"); assert_eq!(e.engine_name, "parquet-go"); }
+    #[test] fn parquet4s() { let e = identify_engine("parquet4s 2.0.0"); assert_eq!(e.engine_name, "parquet4s (Scala)"); assert!(!e.hints.is_empty()); }
+    #[test] fn unknown_returns_empty_hints() { let e = identify_engine("some-unknown-writer 99"); assert_eq!(e.engine_name, "Unknown"); assert!(e.hints.is_empty()); }
+}
+
 fn extract_version(s: &str) -> Option<String> {
     // try to find "version X.Y.Z" or "vX.Y.Z" pattern
     let re_patterns = ["version ", "v"];
