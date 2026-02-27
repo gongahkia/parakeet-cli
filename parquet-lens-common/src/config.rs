@@ -7,6 +7,8 @@ pub struct DisplayConfig {
     pub theme: String,
     #[serde(default = "default_max_rows")]
     pub max_rows_preview: usize,
+    #[serde(default)]
+    pub sidebar_width: Option<u16>, // falls back to 30 when None
 }
 
 fn default_theme() -> String {
@@ -21,6 +23,7 @@ impl Default for DisplayConfig {
         Self {
             theme: default_theme(),
             max_rows_preview: default_max_rows(),
+            sidebar_width: None,
         }
     }
 }

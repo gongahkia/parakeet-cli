@@ -125,6 +125,7 @@ pub struct App {
 
 impl App {
     pub fn new(input_path: String, config: Config) -> Self {
+        let sidebar_width = config.display.sidebar_width.unwrap_or(30);
         Self {
             input_path,
             dataset: None,
@@ -178,7 +179,7 @@ impl App {
             partition_infos: Vec::new(),
             help_scroll: 0,
             watch_rx: None,
-            sidebar_width: 30,
+            sidebar_width,
         }
     }
     pub fn columns(&self) -> &[ColumnSchema] {
