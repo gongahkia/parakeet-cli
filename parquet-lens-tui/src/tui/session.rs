@@ -15,6 +15,12 @@ pub struct Session {
     pub sidebar_sort_asc: bool,
     #[serde(default)]
     pub show_bookmarks_only: bool,
+    #[serde(default = "default_sidebar_width")]
+    pub sidebar_width: u16,
+}
+
+fn default_sidebar_width() -> u16 {
+    30
 }
 
 fn default_true() -> bool {

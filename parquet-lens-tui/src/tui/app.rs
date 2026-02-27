@@ -120,6 +120,7 @@ pub struct App {
     pub theme: Theme,
     pub help_scroll: usize, // scroll offset for help keybind table
     pub watch_rx: Option<std::sync::mpsc::Receiver<()>>, // reload events from filesystem watcher
+    pub sidebar_width: u16, // runtime-adjustable sidebar width, clamped 15..=60
 }
 
 impl App {
@@ -177,6 +178,7 @@ impl App {
             partition_infos: Vec::new(),
             help_scroll: 0,
             watch_rx: None,
+            sidebar_width: 30,
         }
     }
     pub fn columns(&self) -> &[ColumnSchema] {
@@ -353,6 +355,7 @@ impl App {
             sidebar_sort: sort_str.into(),
             sidebar_sort_asc: self.sidebar_sort_asc,
             show_bookmarks_only: self.show_bookmarks_only,
+            sidebar_width: self.sidebar_width,
         }
     }
 
@@ -394,6 +397,7 @@ impl App {
         };
         self.sidebar_sort_asc = s.sidebar_sort_asc;
         self.show_bookmarks_only = s.show_bookmarks_only;
+        self.sidebar_width = s.sidebar_width;
     }
 
     pub fn cycle_profiling_mode(&mut self) {

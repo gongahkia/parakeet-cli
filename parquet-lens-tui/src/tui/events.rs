@@ -66,6 +66,12 @@ fn handle_sidebar(app: &mut App, key: KeyEvent) {
         return;
     }
     match key.code {
+        KeyCode::Char('[') => {
+            app.sidebar_width = app.sidebar_width.saturating_sub(1).max(15);
+        }
+        KeyCode::Char(']') => {
+            app.sidebar_width = (app.sidebar_width + 1).min(60);
+        }
         KeyCode::Char('j') | KeyCode::Down => app.sidebar_down(),
         KeyCode::Char('k') | KeyCode::Up => app.sidebar_up(),
         KeyCode::PageDown => {
