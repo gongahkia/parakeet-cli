@@ -1,3 +1,4 @@
+use crate::stats::AggregatedColumnStats;
 use arrow::array::Array;
 use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
 use parquet_lens_common::{ParquetLensError, Result};
@@ -78,11 +79,33 @@ pub fn summarize_quality(
     total_cells: i64,
     total_nulls: u64,
     schema_consistent: bool,
+    agg_stats: &[AggregatedColumnStats],
 ) -> DatasetQuality {
     let overall_score = if scores.is_empty() {
         100
     } else {
-        (scores.iter().map(|s| s.score as u32).sum::<u32>() / scores.len() as u32) as u8
+        // weighted mean by total_data_page_size; fall back to arithmetic mean if all weights zero
+        let weight_sum: i64 = scores
+            .iter()
+            .filter_map(|s| agg_stats.iter().find(|a| a.column_name == s.column_name))
+            .map(|a| a.total_data_page_size.max(0))
+            .sum();
+        if weight_sum > 0 {
+            let weighted: f64 = scores
+                .iter()
+                .map(|s| {
+                    let w = agg_stats
+                        .iter()
+                        .find(|a| a.column_name == s.column_name)
+                        .map(|a| a.total_data_page_size.max(0))
+                        .unwrap_or(0);
+                    s.score as f64 * w as f64
+                })
+                .sum::<f64>();
+            (weighted / weight_sum as f64).round() as u8
+        } else {
+            (scores.iter().map(|s| s.score as u32).sum::<u32>() / scores.len() as u32) as u8
+        }
     };
     let total_null_cell_pct = if total_cells > 0 {
         total_nulls as f64 / total_cells as f64 * 100.0
