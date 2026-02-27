@@ -28,7 +28,7 @@ pub fn is_gcs_uri(path: &str) -> bool {
 pub async fn list_gcs_parquet(uri: &str) -> Result<Vec<String>> {
     let gcs_uri = parse_gcs_uri(uri)
         .ok_or_else(|| ParquetLensError::Other(format!("invalid GCS URI: {uri}")))?;
-    let token = get_adc_token().await?;
+    let token = get_adc_token(None).await?;
     let url = format!(
         "https://storage.googleapis.com/storage/v1/b/{}/o?prefix={}&fields=items/name",
         gcs_uri.bucket, gcs_uri.object
